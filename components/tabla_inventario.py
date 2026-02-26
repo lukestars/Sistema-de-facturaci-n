@@ -28,13 +28,9 @@ class TablaInventario(ctk.CTkFrame):
         self._build()
 
     def _build(self):
-        # Contenedor scrollable
-        try:
-            self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color=self.colors.get('frame'))
-        except Exception:
-            # Fallback: usar Frame si la versión no tiene CTkScrollableFrame
-            self.scroll_frame = ctk.CTkFrame(self, fg_color=self.colors.get('frame'))
-
+        # Contenedor simple (sin CTkScrollableFrame para evitar doble barra de scroll:
+        # el Treeview ya tiene su propia scrollbar vertical; un ScrollableFrame añadía una segunda)
+        self.scroll_frame = ctk.CTkFrame(self, fg_color=self.colors.get('frame'))
         self.scroll_frame.pack(expand=True, fill='both')
 
         # Treeview (ttk) para mostrar columnas: Código, Nombre, Precio Bs, Precio (USD/EUR), Stock
@@ -49,6 +45,10 @@ class TablaInventario(ctk.CTkFrame):
             pass
 
         self.tree = ttk.Treeview(container, columns=("code","name", "price_bs", "price_usd", "stock"), show='headings', selectmode='browse')
+        try:
+            self.tree.configure(highlightbackground='#4a4a4f', highlightcolor='#4a4a4f', highlightthickness=1)
+        except Exception:
+            pass
         self.tree.heading("code", text="Código")
         self.tree.heading("name", text="Nombre")
         self.tree.heading("price_bs", text="Precio Bs")
@@ -67,10 +67,22 @@ class TablaInventario(ctk.CTkFrame):
         self.tree.column("price_usd", anchor='center', width=90)
         self.tree.column("stock", anchor='center', width=80)
 
-        vsb = ttk.Scrollbar(container, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=vsb.set)
-        vsb.pack(side='right', fill='y')
+        self._vsb = ttk.Scrollbar(container, orient="vertical", command=self.tree.yview)
+
+        def _on_yscroll(first, last):
+            self._vsb.set(first, last)
+            try:
+                if first <= 0 and last >= 0.9999:
+                    self._vsb.pack_forget()
+                else:
+                    self._vsb.pack(side='right', fill='y')
+            except Exception:
+                pass
+
+        self.tree.configure(yscrollcommand=_on_yscroll)
         self.tree.pack(expand=True, fill='both', side='left')
+        # Mostrar scrollbar solo si hay contenido que desborde (se actualiza en reload)
+        self.after_idle(lambda: _on_yscroll(*(self.tree.yview())))
 
         # Popup menu
         self.menu = tk.Menu(self, tearoff=0)
@@ -116,6 +128,15 @@ class TablaInventario(ctk.CTkFrame):
                     continue
             # price_usd column stores price in selected foreign currency (USD or EUR)
             self.tree.insert("", "end", iid=str(pid), values=(display_code, name, f"{price_bs:.2f}", f"{price_usd:.2f}", qty))
+        # Mostrar/ocultar scrollbar según si hay contenido que desborde
+        try:
+            first, last = self.tree.yview()
+            if first <= 0 and last >= 0.9999:
+                self._vsb.pack_forget()
+            else:
+                self._vsb.pack(side='right', fill='y')
+        except Exception:
+            pass
 
     def update_currency_heading(self):
         """Update the foreign-currency column heading symbol according to settings."""

@@ -1,5 +1,6 @@
 import tkinter as tk
 import os
+import json
 import datetime
 import database
 import re
@@ -195,16 +196,17 @@ def open_print_window(parent):
             payments_frame = ttk.LabelFrame(content, text='Pagos', padding=8)
         payments_frame.pack(fill=tk.X, padx=6, pady=(4, 6))
 
-    # Ensure grid alignment inside payments frame
+    # Grid: labels con margen izquierdo 10px; columna de inputs más reducida (no expandir)
     try:
         payments_frame.grid_columnconfigure(0, weight=0)
-        payments_frame.grid_columnconfigure(1, weight=1)
+        payments_frame.grid_columnconfigure(1, weight=0)
     except Exception:
         pass
 
-    # Numeric entry configuration
+    label_padx_left = 10
     entry_digits = 9  # max digits allowed before decimal
-    entry_width = entry_digits  # width in characters equals allowed digits
+    entry_width = 18  # ancho en caracteres para ttk.Entry
+    entry_width_px = 220  # ancho en píxeles para CTkEntry (en CustomTkinter width es en px, no caracteres)
 
     def format_amount_display(value):
         try:
@@ -241,7 +243,6 @@ def open_print_window(parent):
     except Exception:
         lab_maker = ttk.Label
     try:
-        # CTkLabel supports text_color
         lbl = lab_maker(payments_frame, text='Pago punto de venta (BS):')
         try:
             if ctk is not None:
@@ -252,21 +253,21 @@ def open_print_window(parent):
                 lbl.configure(style='Impr.Muted.TLabel')
         except Exception:
             pass
-        lbl.grid(row=0, column=0, sticky=tk.W)
+        lbl.grid(row=0, column=0, sticky=tk.W, padx=(label_padx_left, 6))
     except Exception:
         try:
-            ttk.Label(payments_frame, text='Pago punto de venta (BS):').grid(row=0, column=0, sticky=tk.W)
+            ttk.Label(payments_frame, text='Pago punto de venta (BS):').grid(row=0, column=0, sticky=tk.W, padx=(label_padx_left, 6))
         except Exception:
             pass
     pago_pv_var = tk.StringVar(value='')
     try:
-        pago_pv_entry = Entry(payments_frame, textvariable=pago_pv_var, width=entry_width, justify='right')
+        pago_pv_entry = Entry(payments_frame, textvariable=pago_pv_var, width=(entry_width_px if ctk else entry_width), justify='left')
         try:
             if vcmd:
                 pago_pv_entry.configure(validate='key', validatecommand=(vcmd, '%P'))
         except Exception:
             pass
-        pago_pv_entry.grid(row=0, column=1, sticky=tk.EW, padx=6, pady=4)
+        pago_pv_entry.grid(row=0, column=1, sticky=tk.W, padx=6, pady=4)
         try:
             pago_pv_entry.configure(font=entry_font)
         except Exception:
@@ -280,13 +281,13 @@ def open_print_window(parent):
         except Exception:
             pass
     except Exception:
-        pago_pv_entry = ttk.Entry(payments_frame, textvariable=pago_pv_var, width=entry_width, justify='right')
+        pago_pv_entry = ttk.Entry(payments_frame, textvariable=pago_pv_var, width=entry_width, justify='left')
         try:
             if vcmd:
                 pago_pv_entry.configure(validate='key', validatecommand=(vcmd, '%P'))
         except Exception:
             pass
-        pago_pv_entry.grid(row=0, column=1, sticky=tk.EW, padx=6, pady=4)
+        pago_pv_entry.grid(row=0, column=1, sticky=tk.W, padx=6, pady=4)
         try:
             pago_pv_entry.configure(background=entry_bg)
         except Exception:
@@ -301,21 +302,21 @@ def open_print_window(parent):
                 lbl.configure(style='Impr.Muted.TLabel')
         except Exception:
             pass
-        lbl.grid(row=1, column=0, sticky=tk.W)
+        lbl.grid(row=1, column=0, sticky=tk.W, padx=(label_padx_left, 6))
     except Exception:
         try:
-            ttk.Label(payments_frame, text='Pago efectivo (BS):').grid(row=1, column=0, sticky=tk.W)
+            ttk.Label(payments_frame, text='Pago efectivo (BS):').grid(row=1, column=0, sticky=tk.W, padx=(label_padx_left, 6))
         except Exception:
             pass
     pago_ef_var = tk.StringVar(value='')
     try:
-        pago_ef_entry = Entry(payments_frame, textvariable=pago_ef_var, width=entry_width, justify='right')
+        pago_ef_entry = Entry(payments_frame, textvariable=pago_ef_var, width=(entry_width_px if ctk else entry_width), justify='left')
         try:
             if vcmd:
                 pago_ef_entry.configure(validate='key', validatecommand=(vcmd, '%P'))
         except Exception:
             pass
-        pago_ef_entry.grid(row=1, column=1, sticky=tk.EW, padx=6, pady=4)
+        pago_ef_entry.grid(row=1, column=1, sticky=tk.W, padx=6, pady=4)
         try:
             pago_ef_entry.configure(font=entry_font)
         except Exception:
@@ -328,7 +329,7 @@ def open_print_window(parent):
         except Exception:
             pass
     except Exception:
-        pago_ef_entry = ttk.Entry(payments_frame, textvariable=pago_ef_var, width=entry_width)
+        pago_ef_entry = ttk.Entry(payments_frame, textvariable=pago_ef_var, width=entry_width, justify='left')
         pago_ef_entry.grid(row=1, column=1, sticky=tk.W, padx=6, pady=4)
 
     try:
@@ -340,21 +341,21 @@ def open_print_window(parent):
                 lbl.configure(style='Impr.Muted.TLabel')
         except Exception:
             pass
-        lbl.grid(row=2, column=0, sticky=tk.W)
+        lbl.grid(row=2, column=0, sticky=tk.W, padx=(label_padx_left, 6))
     except Exception:
         try:
-            ttk.Label(payments_frame, text='Pago en $ (USD):').grid(row=2, column=0, sticky=tk.W)
+            ttk.Label(payments_frame, text='Pago en $ (USD):').grid(row=2, column=0, sticky=tk.W, padx=(label_padx_left, 6))
         except Exception:
             pass
     pago_usd_var = tk.StringVar(value='')
     try:
-        pago_usd_entry = Entry(payments_frame, textvariable=pago_usd_var, width=entry_width, justify='right')
+        pago_usd_entry = Entry(payments_frame, textvariable=pago_usd_var, width=(entry_width_px if ctk else entry_width), justify='left')
         try:
             if vcmd:
                 pago_usd_entry.configure(validate='key', validatecommand=(vcmd, '%P'))
         except Exception:
             pass
-        pago_usd_entry.grid(row=2, column=1, sticky=tk.EW, padx=6, pady=4)
+        pago_usd_entry.grid(row=2, column=1, sticky=tk.W, padx=6, pady=4)
         try:
             pago_usd_entry.configure(font=entry_font)
         except Exception:
@@ -379,21 +380,21 @@ def open_print_window(parent):
                 lbl.configure(style='Impr.Muted.TLabel')
         except Exception:
             pass
-        lbl.grid(row=3, column=0, sticky=tk.W)
+        lbl.grid(row=3, column=0, sticky=tk.W, padx=(label_padx_left, 6))
     except Exception:
         try:
-            ttk.Label(payments_frame, text='Pago móvil (BS):').grid(row=3, column=0, sticky=tk.W)
+            ttk.Label(payments_frame, text='Pago móvil (BS):').grid(row=3, column=0, sticky=tk.W, padx=(label_padx_left, 6))
         except Exception:
             pass
     pago_movil_var = tk.StringVar(value='')
     try:
-        pago_movil_entry = Entry(payments_frame, textvariable=pago_movil_var, width=entry_width, justify='right')
+        pago_movil_entry = Entry(payments_frame, textvariable=pago_movil_var, width=(entry_width_px if ctk else entry_width), justify='left')
         try:
             if vcmd:
                 pago_movil_entry.configure(validate='key', validatecommand=(vcmd, '%P'))
         except Exception:
             pass
-        pago_movil_entry.grid(row=3, column=1, sticky=tk.EW, padx=6, pady=4)
+        pago_movil_entry.grid(row=3, column=1, sticky=tk.W, padx=6, pady=4)
         try:
             pago_movil_entry.configure(font=entry_font)
         except Exception:
@@ -418,10 +419,10 @@ def open_print_window(parent):
                 lbl.configure(style='Impr.Muted.TLabel')
         except Exception:
             pass
-        lbl.grid(row=4, column=0, sticky=tk.W)
+        lbl.grid(row=4, column=0, sticky=tk.W, padx=(label_padx_left, 6))
     except Exception:
         try:
-            ttk.Label(payments_frame, text='Ref. Pago móvil (6 dígitos):').grid(row=4, column=0, sticky=tk.W)
+            ttk.Label(payments_frame, text='Ref. Pago móvil (6 dígitos):').grid(row=4, column=0, sticky=tk.W, padx=(label_padx_left, 6))
         except Exception:
             pass
     pago_ref_var = tk.StringVar(value='')
@@ -469,7 +470,7 @@ def open_print_window(parent):
     except Exception:
         pass
     try:
-        pago_ref_entry = Entry(payments_frame, textvariable=pago_ref_var, width=entry_width, justify='center')
+        pago_ref_entry = Entry(payments_frame, textvariable=pago_ref_var, width=(entry_width_px if ctk else entry_width), justify='left')
         try:
             # reference limit: max 6 digits
             def validate_ref(nv):
@@ -483,7 +484,7 @@ def open_print_window(parent):
                 pass
         except Exception:
             pass
-        pago_ref_entry.grid(row=4, column=1, sticky=tk.EW, padx=6, pady=4)
+        pago_ref_entry.grid(row=4, column=1, sticky=tk.W, padx=6, pady=4)
         try:
             pago_ref_entry.configure(font=entry_font)
         except Exception:
@@ -631,14 +632,52 @@ def open_print_window(parent):
 
     def parse_amount(s):
         try:
-            return float(str(s).replace(',', ''))
+            raw = str(s).strip().replace(',', '').replace('$', '').replace(' ', '')
+            if not raw:
+                return 0.0
+            return float(raw)
         except Exception:
             return 0.0
 
+    rate_safe = rate if rate and float(rate) != 0 else 1.0
+
     printed = [False]
 
+    def close_print_window():
+        """Close the print dialog; if user did not print, restore stock on the invoice."""
+        try:
+            if not printed[0]:
+                restore = getattr(parent, '_restore_invoice_stock', None)
+                if callable(restore):
+                    restore()
+                try:
+                    parent.update_totals()
+                except Exception:
+                    pass
+                try:
+                    if hasattr(parent, '_reload') and callable(parent._reload):
+                        parent._reload()
+                except Exception:
+                    pass
+            try:
+                win.grab_release()
+            except Exception:
+                pass
+            win.destroy()
+        except Exception:
+            try:
+                win.destroy()
+            except Exception:
+                pass
+
+    try:
+        win.protocol('WM_DELETE_WINDOW', close_print_window)
+    except Exception:
+        pass
+
     def update_payment_status(*a):
-        paid_bs = parse_amount(pago_pv_var.get()) + parse_amount(pago_ef_var.get()) + parse_amount(pago_usd_var.get()) * rate + parse_amount(pago_movil_var.get())
+        paid_usd = parse_amount(pago_usd_var.get())
+        paid_bs = parse_amount(pago_pv_var.get()) + parse_amount(pago_ef_var.get()) + (paid_usd * rate_safe) + parse_amount(pago_movil_var.get())
         try:
             paid_var.set(f"{format_amount_display(paid_bs)} BS")
         except Exception:
@@ -646,7 +685,7 @@ def open_print_window(parent):
         diff = round(total_bs - paid_bs, 2)
         try:
             if diff > 0:
-                diff_usd = round(diff / rate, 2) if rate else 0.0
+                diff_usd = round(diff / rate_safe, 2) if rate_safe else 0.0
                 diff_var.set(f"Falta: {format_amount_display(diff)} BS (≈ {format_amount_display(diff_usd)} $)")
                 status_var.set('Pendiente por cobrar')
                 try:
@@ -1001,8 +1040,13 @@ def open_print_window(parent):
                 parent.update_totals()
             except Exception:
                 pass
+            invoice_id = (getattr(parent, 'get_current_invoice_id', None) and parent.get_current_invoice_id()) or f"{fecha[:8]}-1"
+            productos_for_listado = [{'name': it.get('name', ''), 'qty': it.get('quantity', 0), 'price': it.get('price', 0)} for it in selected]
             invoice = {
+                'id': invoice_id,
+                'numero_factura': invoice_id,
                 'productos': selected,
+                'productos_display': productos_for_listado,
                 'subtotal_usd': round(subtotal_usd, 2),
                 'iva_amount_usd': round(impuesto_usd, 2),
                 'total_usd': round(total_usd_calc, 2),
@@ -1031,6 +1075,28 @@ def open_print_window(parent):
                     parent.facturas = [invoice]
             except Exception:
                 pass
+            facturas_dir = getattr(parent, '_facturas_dir', None) or os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'facturas')
+            try:
+                os.makedirs(facturas_dir, exist_ok=True)
+                date_folder = datetime.datetime.now().strftime('%Y-%m-%d')
+                day_dir = os.path.join(facturas_dir, date_folder)
+                os.makedirs(day_dir, exist_ok=True)
+                json_path = os.path.join(day_dir, f"{invoice_id}.json")
+                inv_save = {**invoice, 'productos': productos_for_listado}
+                with open(json_path, 'w', encoding='utf-8') as f:
+                    json.dump(inv_save, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+            try:
+                from utils.invoice_id import increment_invoice_counter
+                increment_invoice_counter(getattr(parent, '_data_dir', None))
+            except Exception:
+                pass
+            try:
+                if getattr(parent, 'update_invoice_id', None):
+                    parent.update_invoice_id()
+            except Exception:
+                pass
             try:
                 win.destroy()
             except Exception:
@@ -1048,7 +1114,7 @@ def open_print_window(parent):
     except Exception:
         pass
 
-    Button(content, text='Cerrar', command=win.destroy).pack(pady=8)
+    Button(content, text='Cerrar', command=close_print_window).pack(pady=8)
 
     # initial status update
     update_payment_status()

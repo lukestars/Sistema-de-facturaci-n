@@ -313,8 +313,14 @@ class ConfigWindow(ctk.CTkToplevel):
             ctk.CTkLabel(f_cierre, text='Formato de impresión', font=self.fonts.get('heading')).pack(anchor='w', pady=6)
             ctk.CTkLabel(f_cierre, text='Configura la impresora predeterminada y el formato de ticket').pack(anchor='w', pady=6)
 
+            # Colores del área de impresión (grises, sin azul)
+            print_fg = self.colors.get('frame', '#1b1b1f')
+            print_btn = '#4a4a4f'
+            print_dropdown_bg = '#2b2b2f'
+            print_border_gray = '#5a5a5f'
+
             # Printing settings frame
-            pf = ctk.CTkFrame(f_cierre, fg_color=self.colors.get('frame'))
+            pf = ctk.CTkFrame(f_cierre, fg_color=print_fg)
             pf.pack(fill='x', padx=6, pady=6)
 
             ctk.CTkLabel(pf, text='Impresora predeterminada:', anchor='w').grid(row=0, column=0, sticky='w', padx=6, pady=6)
@@ -367,8 +373,13 @@ class ConfigWindow(ctk.CTkToplevel):
                 # If we have printers, show option menu; otherwise show option menu with placeholder
                 menu_values = printers_list if printers_list else ['(ninguna detectada)']
                 try:
-                    printer_menu = ctk.CTkOptionMenu(pf, values=menu_values, variable=printer_var)
-                    printer_menu.grid(row=0, column=1, sticky='ew', padx=6, pady=6)
+                    printer_menu = ctk.CTkOptionMenu(
+                        pf, values=menu_values, variable=printer_var,
+                        width=220, fg_color=print_dropdown_bg, button_color=print_btn,
+                        dropdown_fg_color=print_dropdown_bg, dropdown_hover_color=print_btn,
+                        button_hover_color=print_border_gray
+                    )
+                    printer_menu.grid(row=0, column=1, sticky='w', padx=6, pady=6)
                 except Exception:
                     # fallback to entry if option menu not available
                     printer_menu = ctk.CTkEntry(pf, textvariable=printer_var, placeholder_text='Nombre de impresora')
@@ -387,8 +398,13 @@ class ConfigWindow(ctk.CTkToplevel):
             ctk.CTkLabel(pf, text='Formato papel (ancho):').grid(row=1, column=0, sticky='w', padx=6, pady=6)
             paper_var = tk.StringVar(value='58mm')
             try:
-                paper_menu = ctk.CTkOptionMenu(pf, values=['58mm', '80mm'], variable=paper_var)
-                paper_menu.grid(row=1, column=1, sticky='ew', padx=6, pady=6)
+                paper_menu = ctk.CTkOptionMenu(
+                    pf, values=['58mm', '80mm'], variable=paper_var,
+                    width=120, fg_color=print_dropdown_bg, button_color=print_btn,
+                    dropdown_fg_color=print_dropdown_bg, dropdown_hover_color=print_btn,
+                    button_hover_color=print_border_gray
+                )
+                paper_menu.grid(row=1, column=1, sticky='w', padx=6, pady=6)
             except Exception:
                 try:
                     paper_menu = ttk.Combobox(pf, values=['58mm', '80mm'], textvariable=paper_var)
@@ -556,9 +572,9 @@ class ConfigWindow(ctk.CTkToplevel):
                 def open_add_user_dialog():
                     dlg = ctk.CTkToplevel(self)
                     dlg.title('Agregar cuenta')
-                    # tamaño y centrado sobre la ventana padre
                     try:
-                        dlg.resizable(False, False)
+                        dlg.resizable(True, True)
+                        dlg.minsize(400, 380)
                     except Exception:
                         pass
                     try:
@@ -571,7 +587,7 @@ class ConfigWindow(ctk.CTkToplevel):
                         pwx = pwy = 0
                         pww = dlg.winfo_screenwidth()
                         pwh = dlg.winfo_screenheight()
-                    dw, dh = 520, 420
+                    dw, dh = 520, 460
                     dx = pwx + max(0, int((pww - dw) / 2))
                     dy = pwy + max(0, int((pwh - dh) / 2))
                     try:
@@ -583,8 +599,15 @@ class ConfigWindow(ctk.CTkToplevel):
                         dlg.grab_set()
                     except Exception:
                         pass
-                    fdlg = ctk.CTkFrame(dlg, fg_color=self.colors.get('frame'))
-                    fdlg.pack(fill='both', expand=True, padx=12, pady=12)
+                    # Outer frame and scrollable area so all fields are accessible on small screens
+                    outer = ctk.CTkFrame(dlg, fg_color=self.colors.get('frame'))
+                    outer.pack(fill='both', expand=True, padx=12, pady=12)
+                    try:
+                        scroll = ctk.CTkScrollableFrame(outer, fg_color=self.colors.get('frame'))
+                        scroll.pack(fill='both', expand=True)
+                        fdlg = scroll
+                    except Exception:
+                        fdlg = outer
                     # campos alineados verticalmente, más espacio
                     enombre = ctk.CTkEntry(fdlg, placeholder_text='Nombre')
                     enombre.pack(fill='x', pady=6)
@@ -833,7 +856,8 @@ class ConfigWindow(ctk.CTkToplevel):
                     dlg = tk.Toplevel(self)
                     dlg.title('Agregar cuenta')
                     try:
-                        dlg.resizable(False, False)
+                        dlg.resizable(True, True)
+                        dlg.minsize(400, 380)
                     except Exception:
                         pass
                     # centrar sobre padre
@@ -847,7 +871,7 @@ class ConfigWindow(ctk.CTkToplevel):
                         pwx = pwy = 0
                         pww = dlg.winfo_screenwidth()
                         pwh = dlg.winfo_screenheight()
-                    dw, dh = 520, 420
+                    dw, dh = 520, 460
                     dx = pwx + max(0, int((pww - dw) / 2))
                     dy = pwy + max(0, int((pwh - dh) / 2))
                     try:

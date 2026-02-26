@@ -13,9 +13,10 @@ class Tooltip:
 
 
 def style_window(app: Any, win: tk.Toplevel | tk.Tk) -> tk.Frame:
-    bg_main = getattr(app, 'theme_colors', {}).get('bg_main', '#212121')
-    panel = getattr(app, 'theme_colors', {}).get('panel', '#323232')
-    border = getattr(app, 'theme_colors', {}).get('border', '#2f2f2f')
+    colors = getattr(app, 'colors', None) or getattr(app, 'theme_colors', {})
+    bg_main = colors.get('bg', colors.get('bg_main', '#121212'))
+    panel = colors.get('frame', colors.get('panel', '#1b1b1f'))
+    border = colors.get('muted', colors.get('border', '#4a4a4f'))
     try:
         win.configure(bg=bg_main)
     except Exception:

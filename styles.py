@@ -83,6 +83,15 @@ def apply_styles():
             style.map('Horizontal.TScrollbar', background=[('active', hover_col), ('!active', hover_col)])
         except Exception:
             pass
+        # Tema oscuro para TFrame, TLabel, TButton, TEntry (ventanas historial, cierre, export)
+        try:
+            style.configure('TFrame', background=frame_col)
+            style.configure('TLabel', background=frame_col, foreground=tree_fg)
+            style.configure('TButton', background=hover_col, foreground=tree_fg)
+            style.map('TButton', background=[('active', frame_col), ('pressed', head_bg)])
+            style.configure('TEntry', fieldbackground=tree_bg, foreground=tree_fg)
+        except Exception:
+            pass
     except Exception:
         pass
 

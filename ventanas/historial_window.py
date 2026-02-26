@@ -1,11 +1,9 @@
+import sys
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk
 import database
-import customtkinter as ctk
-import tkinter as tk
-from tkinter import ttk
-import database
+
 
 def open_history_window(parent):
     try:
@@ -34,7 +32,6 @@ def open_history_window(parent):
             if hasattr(database, 'get_history'):
                 rows = database.get_history()
             else:
-                # fallback: build a small sample from product changes (if available)
                 rows = []
         except Exception:
             rows = []
@@ -56,6 +53,20 @@ def open_history_window(parent):
             win.grab_set()
         except Exception:
             pass
+
+        # On macOS/Linux the popup often doesn't get focus; force it after a short delay
+        if sys.platform != 'win32':
+            def _focus_popup():
+                try:
+                    win.focus_force()
+                    win.lift()
+                except Exception:
+                    pass
+            try:
+                win.after(120, _focus_popup)
+            except Exception:
+                pass
+
         return win
     except Exception:
         return None

@@ -19,13 +19,18 @@ def show_paused_invoices(app):
         win.resizable(True, True)
     except Exception:
         pass
+    colors = getattr(app, 'colors', None) or getattr(app, 'theme_colors', {})
+    panel_p = colors.get('frame', '#1b1b1f')
+    fg_p = colors.get('text', '#e6eef8')
+    border_gray = colors.get('muted', '#4a4a4f')
+    head_bg = colors.get('table_header', '#2b2b2b')
     try:
         st = ttk.Style()
-        st.configure('SmallPaused.Treeview', rowheight=int(22 * _UI_SCALE), font=('Helvetica', int(9 * _UI_SCALE)))
-        st.configure('SmallPaused.Treeview.Heading', font=('Helvetica', int(10 * _UI_SCALE), 'bold'))
-        panel_p = getattr(app, 'theme_colors', {}).get('panel', '#0e1014')
-        fg_p = getattr(app, 'theme_colors', {}).get('fg_text', '#E8ECF4')
-        st.map('SmallPaused.Treeview.Heading', background=[('active', panel_p)], foreground=[('active', fg_p)])
+        st.configure('SmallPaused.Treeview', rowheight=int(22 * _UI_SCALE), font=('Helvetica', int(9 * _UI_SCALE)),
+                    background=panel_p, fieldbackground=panel_p, foreground=fg_p)
+        st.configure('SmallPaused.Treeview.Heading', font=('Helvetica', int(10 * _UI_SCALE), 'bold'),
+                    background=head_bg, foreground=fg_p)
+        st.map('SmallPaused.Treeview.Heading', background=[('active', border_gray)], foreground=[('active', fg_p)])
     except Exception:
         pass
     try:
@@ -58,7 +63,9 @@ def show_paused_invoices(app):
 
     list_frame = ttk.Frame(left)
     list_frame.pack(fill=tk.BOTH, expand=True)
-    tree = ttk.Treeview(list_frame, columns=('ID', 'Fecha', 'Hora', 'Cliente', 'Productos', 'TotalBS', 'TotalUSD'),
+    tree_wrap = tk.Frame(list_frame, bg=border_gray, highlightbackground=border_gray, highlightcolor=border_gray, highlightthickness=1)
+    tree_wrap.pack(fill=tk.BOTH, expand=True)
+    tree = ttk.Treeview(tree_wrap, columns=('ID', 'Fecha', 'Hora', 'Cliente', 'Productos', 'TotalBS', 'TotalUSD'),
                         show='tree headings', height=18, style='SmallPaused.Treeview')
     tree.heading('#0', text='Fecha')
     tree.heading('ID', text='ID')
@@ -76,7 +83,7 @@ def show_paused_invoices(app):
     tree.column('Productos', width=320)
     tree.column('TotalBS', width=110, anchor=tk.E)
     tree.column('TotalUSD', width=90, anchor=tk.E)
-    vsb = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=tree.yview)
+    vsb = ttk.Scrollbar(tree_wrap, orient=tk.VERTICAL, command=tree.yview)
     tree.configure(yscrollcommand=vsb.set)
     vsb.pack(side=tk.RIGHT, fill=tk.Y)
     tree.pack(fill=tk.BOTH, expand=True)
@@ -153,17 +160,22 @@ def show_paused_invoices(app):
     ttk.Label(detail_box, text='Cliente:').grid(row=2, column=0, sticky=tk.W)
     ttk.Label(detail_box, textvariable=info_vars['client']).grid(row=2, column=1, sticky=tk.W)
     ttk.Label(detail_box, text='Items:').grid(row=3, column=0, sticky=tk.NW)
-    box_outer = tk.Frame(detail_box, bg='#bfbfbf')
+    box_outer = tk.Frame(detail_box, bg=border_gray, highlightbackground=border_gray, highlightcolor=border_gray, highlightthickness=1)
     box_outer.grid(row=3, column=1, sticky='nsew', padx=2, pady=2)
-    box_inner = tk.Frame(box_outer, bg='#1e1e1e')
+    box_inner = tk.Frame(box_outer, bg=panel_p)
     box_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
     try:
         detail_box.grid_rowconfigure(3, weight=1)
         detail_box.grid_columnconfigure(1, weight=1)
     except Exception:
         pass
+    try:
+        ttk.Style().configure('SmallPausedDetail.Treeview', background=panel_p, fieldbackground=panel_p, foreground=fg_p)
+        ttk.Style().configure('SmallPausedDetail.Treeview.Heading', background=head_bg, foreground=fg_p)
+    except Exception:
+        pass
     p_cols = ('Cant', 'Producto', 'Precio')
-    p_tree = ttk.Treeview(box_inner, columns=p_cols, show='headings', selectmode='none')
+    p_tree = ttk.Treeview(box_inner, columns=p_cols, show='headings', selectmode='none', style='SmallPausedDetail.Treeview')
     p_tree.heading('Cant', text='Cant.')
     p_tree.heading('Producto', text='Producto')
     p_tree.heading('Precio', text='Precio')
@@ -172,13 +184,13 @@ def show_paused_invoices(app):
     p_tree.column('Precio', width=100, anchor=tk.E)
     p_tree.pack(fill=tk.BOTH, expand=True)
     try:
-        p_tree.tag_configure('odd', background='#2b2b2b')
-        p_tree.tag_configure('even', background='#262626')
+        p_tree.tag_configure('odd', background=head_bg)
+        p_tree.tag_configure('even', background=panel_p)
     except Exception:
         pass
     ttk.Label(detail_box, text='Total (BS):').grid(row=4, column=0, sticky=tk.W, pady=(8, 0))
     ttk.Label(detail_box, textvariable=info_vars['total'], font=('Helvetica', 11, 'bold'),
-              foreground=app.theme_colors.get('accent', '#0062ff')).grid(row=4, column=1, sticky=tk.W, pady=(8, 0))
+              foreground=colors.get('accent', '#22c55e')).grid(row=4, column=1, sticky=tk.W, pady=(8, 0))
     ttk.Label(detail_box, text='Total ($):').grid(row=5, column=0, sticky=tk.W)
     ttk.Label(detail_box, textvariable=info_vars['total_usd'], font=('Helvetica', 12, 'bold')).grid(row=5, column=1, sticky=tk.W)
 

@@ -29,6 +29,8 @@ def compute_cierre_totals(facturas_dia: list, exchange_rate: float = 1.0) -> dic
 
 def show_cierre_caja(app):
     facturas_dir = getattr(app, '_facturas_dir', os.path.join(getattr(app, '_data_dir', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')), 'facturas'))
+    colors = getattr(app, 'colors', None) or getattr(app, 'theme_colors', {})
+    border_gray = colors.get('muted', '#4a4a4f')
     win = tk.Toplevel(app.root)
     win.title('Cierre de caja')
     win.resizable(True, True)
@@ -42,8 +44,10 @@ def show_cierre_caja(app):
     date_entry = ttk.Entry(f, textvariable=date_var, width=12)
     date_entry.pack(side=tk.LEFT, padx=6)
 
-    report_frame = ttk.Frame(content)
-    report_frame.pack(fill=tk.BOTH, expand=True, padx=pad, pady=pad)
+    report_outer = tk.Frame(content, bg=border_gray, highlightbackground=border_gray, highlightcolor=border_gray, highlightthickness=1)
+    report_outer.pack(fill=tk.BOTH, expand=True, padx=pad, pady=pad)
+    report_frame = ttk.Frame(report_outer)
+    report_frame.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
 
     def _cargar():
         date_str = date_var.get().strip()

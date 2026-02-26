@@ -35,6 +35,10 @@ class TablaFactura(ctk.CTkFrame):
         # add a remove column (acts as an 'X' button)
         # columns: Nombre | Precio (Bs) | IVA | Cantidad | Subtotal (Bs) | Remove
         self.tree = ttk.Treeview(container, columns=("name", "price", "iva", "quantity", "subtotal", "remove"), show='headings')
+        try:
+            self.tree.configure(highlightbackground='#4a4a4f', highlightcolor='#4a4a4f', highlightthickness=1)
+        except Exception:
+            pass
         self.tree.heading('name', text='Nombre')
         self.tree.heading('price', text='Precio Bs')
         self.tree.heading('iva', text='IVA')
@@ -48,10 +52,21 @@ class TablaFactura(ctk.CTkFrame):
         self.tree.column('subtotal', anchor='center', width=110)
         self.tree.column('remove', anchor='center', width=30)
 
-        vsb = ttk.Scrollbar(container, orient='vertical', command=self.tree.yview)
-        self.tree.configure(yscrollcommand=vsb.set)
-        vsb.pack(side='right', fill='y')
+        self._vsb = ttk.Scrollbar(container, orient='vertical', command=self.tree.yview)
+
+        def _on_yscroll(first, last):
+            self._vsb.set(first, last)
+            try:
+                if first <= 0 and last >= 0.9999:
+                    self._vsb.pack_forget()
+                else:
+                    self._vsb.pack(side='right', fill='y')
+            except Exception:
+                pass
+
+        self.tree.configure(yscrollcommand=_on_yscroll)
         self.tree.pack(expand=True, fill='both', side='left')
+        self.after_idle(lambda: _on_yscroll(*(self.tree.yview())))
 
         # popup menu
         self.menu = tk.Menu(self, tearoff=0)
@@ -103,6 +118,15 @@ class TablaFactura(ctk.CTkFrame):
             iva_text = f"{iva_amount:.2f} Bs" if vat_enabled else "-"
             # show prices in Bs in the invoice table
             self.tree.insert('', 'end', iid=str(pid), values=(name, f"{price:.2f} Bs", iva_text, qty, f"{subtotal:.2f} Bs", 'X'))
+        # Mostrar/ocultar scrollbar según si hay contenido que desborde
+        try:
+            first, last = self.tree.yview()
+            if first <= 0 and last >= 0.9999:
+                self._vsb.pack_forget()
+            else:
+                self._vsb.pack(side='right', fill='y')
+        except Exception:
+            pass
 
     def _delete_selected(self):
         sel = self.tree.selection()
@@ -131,14 +155,14 @@ class TablaFactura(ctk.CTkFrame):
             pass
 
     def _on_left_click(self, event):
-        # identify column and row; if remove column clicked, delete that item
+        # identify column and row; if remove column (X) clicked, delete that item and return qty to stock
         try:
             col = self.tree.identify_column(event.x)
             row = self.tree.identify_row(event.y)
             if not row:
                 return
-            # columns are like '#1','#2'... remove is last column -> compare index
-            if col == '#5':
+            # columns: #1=name, #2=price, #3=iva, #4=quantity, #5=subtotal, #6=remove
+            if col == '#6':
                 self.tree.selection_set(row)
                 self._delete_selected()
         except Exception:

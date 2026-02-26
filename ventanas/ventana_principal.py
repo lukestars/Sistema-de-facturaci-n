@@ -126,9 +126,13 @@ class VentanaPrincipal(ctk.CTkToplevel):
         # track open product dialogs so we can update their currency label live
         self._open_product_dialogs = []
 
-        # Panel izquierdo
+        # Panel izquierdo (área de productos)
         left_frame = ctk.CTkFrame(content, fg_color=colors.get('frame'))
         left_frame.grid(row=1, column=0, sticky='nsew', padx=10, pady=10)
+
+        # Título del área de productos
+        title_products = ctk.CTkLabel(left_frame, text='Productos', font=self.fonts.get('heading'), text_color=colors.get('text'))
+        title_products.pack(anchor='w', padx=8, pady=(8, 4))
 
         # Barra de búsqueda sobre la tabla
         search_frame = ctk.CTkFrame(left_frame, fg_color=colors.get('frame'))
@@ -141,23 +145,30 @@ class VentanaPrincipal(ctk.CTkToplevel):
         except Exception:
             pass
 
-        # Controles sobre la tabla (Agregar / Editar / Stock)
+        # Controles sobre la tabla (Agregar / Editar / Stock / Historial)
         ctrl_frame = ctk.CTkFrame(left_frame, fg_color=colors.get('frame'))
         ctrl_frame.pack(fill='x', padx=8, pady=(4, 4))
 
-        add_btn = ctk.CTkButton(ctrl_frame, text="Agregar", command=self._open_add_product_dialog)
+        # Fila de botones
+        btn_row = ctk.CTkFrame(ctrl_frame, fg_color=colors.get('frame'))
+        btn_row.pack(fill='x')
+
+        add_btn = ctk.CTkButton(btn_row, text="Agregar", command=self._open_add_product_dialog)
         add_btn.pack(side='left', padx=6)
 
-        edit_btn = ctk.CTkButton(ctrl_frame, text="Editar", command=self._open_edit_product_dialog)
+        edit_btn = ctk.CTkButton(btn_row, text="Editar", command=self._open_edit_product_dialog)
         edit_btn.pack(side='left', padx=6)
 
-        stock_btn = ctk.CTkButton(ctrl_frame, text="Stock", command=self._open_stock_dialog)
+        stock_btn = ctk.CTkButton(btn_row, text="Stock", command=self._open_stock_dialog)
         stock_btn.pack(side='left', padx=6)
 
-        # status label for quick messages
+        refresh_btn = ctk.CTkButton(btn_row, text="Historial", command=lambda: self._open_history())
+        refresh_btn.pack(side='left', padx=6)
+
+        # Mensajes de estado en una fila debajo de los botones
         self.status_lbl = ctk.CTkLabel(ctrl_frame, text='', text_color=colors.get('text'))
-        self.status_lbl.pack(side='left', padx=6)
-        # status message management
+        self.status_lbl.pack(side='top', anchor='w', padx=6, pady=(2, 0))
+
         self._status_after_id = None
         def _clear_status_internal():
             try:
@@ -168,9 +179,8 @@ class VentanaPrincipal(ctk.CTkToplevel):
         self._clear_status_internal = _clear_status_internal
 
         def show_status(message: str, timeout: int = 4000):
-            """Show a non-obstructive status message in the header for `timeout` ms."""
+            """Show a non-obstructive status message below the buttons for `timeout` ms."""
             try:
-                # cancel previous clear if pending
                 if self._status_after_id:
                     try:
                         self.after_cancel(self._status_after_id)
@@ -183,7 +193,6 @@ class VentanaPrincipal(ctk.CTkToplevel):
                     except Exception:
                         self._status_after_id = None
             except Exception:
-                # best-effort: if status cannot be shown, print to console
                 try:
                     print('[STATUS]', message)
                 except Exception:
@@ -191,9 +200,6 @@ class VentanaPrincipal(ctk.CTkToplevel):
 
         self.show_status = show_status
         self.clear_status = lambda: self.show_status('', 0)
-
-        refresh_btn = ctk.CTkButton(ctrl_frame, text="Historial", command=lambda: self._open_history())
-        refresh_btn.pack(side='left', padx=6)
 
         # Tabla de inventario
         self.tabla = TablaInventario(left_frame, colors=colors, fonts=fonts)
@@ -207,28 +213,33 @@ class VentanaPrincipal(ctk.CTkToplevel):
         # Total panel (reemplaza el resumen): muestra subtotal, IVA y total (incluye IVA) en Bs y en la divisa seleccionada
         total_frame = ctk.CTkFrame(right_frame, fg_color=colors.get('frame'))
         total_frame.grid(row=0, column=0, sticky='new', padx=6, pady=6)
-        # boxed area for totals with highlighted main total
-        # use a gray that harmonizes with the palette (use 'frame' color as base)
+        # boxed area for totals; borde gris y Total Bs en verde
         box_bg = colors.get('frame', '#1b1b1f')
-        # slightly lighten the frame color for inner box if possible
-        box_border = colors.get('accent', '#00A3FF')
+        box_border = '#4a4a4f'
         totals_box = ctk.CTkFrame(total_frame, fg_color=box_bg, corner_radius=8, border_width=1, border_color=box_border)
         totals_box.pack(fill='x', padx=8, pady=8)
+
+        try:
+            from utils.invoice_id import get_next_invoice_id
+            self._current_invoice_id = get_next_invoice_id(self._data_dir)
+        except Exception:
+            import datetime
+            self._current_invoice_id = datetime.datetime.now().strftime('%Y%m%d') + '-1'
+        self.invoice_id_label = ctk.CTkLabel(totals_box, text=f"ID Factura: {self._current_invoice_id}", font=self.fonts.get('normal'), text_color=colors.get('text'))
+        self.invoice_id_label.pack(anchor='w', padx=8, pady=(8,2))
 
         self.subtotal_label = ctk.CTkLabel(totals_box, text="Subtotal Bs: 0.00", font=self.fonts.get('normal'))
         self.subtotal_label.pack(anchor='w', padx=8, pady=(8,2))
         self.iva_label = ctk.CTkLabel(totals_box, text="IVA: 0.00 Bs", font=self.fonts.get('normal'))
         self.iva_label.pack(anchor='w', padx=8, pady=(0,2))
-        # main total styled in electric blue to stand out
-        electric_blue = '#00A3FF'
+        total_green = '#22c55e'
         try:
-            # prefer a heading font if available
             tf = self.fonts.get('heading') or self.fonts.get('normal')
         except Exception:
             tf = None
-        self.total_bs_label = ctk.CTkLabel(totals_box, text="Total Bs: 0.00", font=tf, text_color=electric_blue)
+        self.total_bs_label = ctk.CTkLabel(totals_box, text="Total Bs: 0.00", font=tf, text_color=total_green)
         self.total_bs_label.pack(anchor='w', padx=8, pady=(4,4))
-        self.total_foreign_label = ctk.CTkLabel(totals_box, text="Total moneda: 0.00", font=self.fonts.get('normal'), text_color=electric_blue)
+        self.total_foreign_label = ctk.CTkLabel(totals_box, text="Total moneda: 0.00", font=self.fonts.get('normal'), text_color=total_green)
         self.total_foreign_label.pack(anchor='w', padx=8, pady=(0,8))
 
         # Panel de productos seleccionados para la factura (se parece a la lista de productos)
@@ -275,9 +286,33 @@ class VentanaPrincipal(ctk.CTkToplevel):
 
         # main window geometry is set during initialization; avoid extra re-centering hacks
 
-        # ensure window close restores invoice stock
+        # ensure window close restores invoice stock (solo debe restarse stock al imprimir)
         try:
             self.protocol('WM_DELETE_WINDOW', self._on_close)
+        except Exception:
+            pass
+        # Si la ventana se destruye por cualquier vía (logout, etc.), restaurar stock
+        def _on_destroy(event):
+            if event.widget is self:
+                try:
+                    self._restore_invoice_stock()
+                except Exception:
+                    pass
+        try:
+            self.bind('<Destroy>', _on_destroy)
+        except Exception:
+            pass
+
+    def get_current_invoice_id(self):
+        """Devuelve el ID de la factura actual (formato YYYYMMDD-N)."""
+        return getattr(self, '_current_invoice_id', '')
+
+    def update_invoice_id(self):
+        """Actualiza el ID de factura mostrado al siguiente (tras imprimir)."""
+        try:
+            from utils.invoice_id import get_next_invoice_id
+            self._current_invoice_id = get_next_invoice_id(self._data_dir)
+            self.invoice_id_label.configure(text=f"ID Factura: {self._current_invoice_id}")
         except Exception:
             pass
 
@@ -714,6 +749,11 @@ class VentanaPrincipal(ctk.CTkToplevel):
 
     def _logout(self):
         try:
+            # Restaurar stock de productos en la factura antes de cerrar (no se imprimió)
+            try:
+                self._restore_invoice_stock()
+            except Exception:
+                pass
             # Si esta ventana fue creada con un master (login), devolver el focus al login
             m = getattr(self, 'master', None)
             try:
@@ -769,18 +809,25 @@ class VentanaPrincipal(ctk.CTkToplevel):
                 pass
             pad = 12
             try:
-                # center using existing helper
                 self._center_window(win, dw=380, dh=320)
             except Exception:
                 pass
+            colors = getattr(self, 'colors', {})
             try:
-                frm = ttk.Frame(win, padding=pad)
-                frm.pack(fill=tk.BOTH, expand=True)
+                win.configure(fg_color=colors.get('bg', '#121212'))
             except Exception:
-                frm = tk.Frame(win, padx=pad, pady=pad)
+                try:
+                    win['bg'] = colors.get('bg', '#121212')
+                except Exception:
+                    pass
+            try:
+                frm = ctk.CTkFrame(win, fg_color=colors.get('frame', '#1b1b1f'))
+                frm.pack(fill=tk.BOTH, expand=True, padx=pad, pady=pad)
+            except Exception:
+                frm = tk.Frame(win, padx=pad, pady=pad, bg=colors.get('frame', '#1b1b1f'))
                 frm.pack(fill=tk.BOTH, expand=True)
 
-            ttk.Label(frm, text='Historial', font=(self.fonts.get('heading') if hasattr(self, 'fonts') else None)).pack(pady=(0, pad))
+            ctk.CTkLabel(frm, text='Historial', font=self.fonts.get('heading') if hasattr(self, 'fonts') else None, text_color=colors.get('text', '#e6eef8')).pack(pady=(0, pad))
 
             def _open_and_close(cmd):
                 try:
@@ -829,19 +876,13 @@ class VentanaPrincipal(ctk.CTkToplevel):
                 except Exception:
                     show_export_menu = None
 
-            b1 = ttk.Button(frm, text='  Facturas finalizadas', command=lambda: _open_and_close(show_facturas), width=28)
-            b1.pack(fill=tk.X, pady=6)
-            b2 = ttk.Button(frm, text='  Facturas en pausa', command=lambda: _open_and_close(show_paused_invoices), width=28)
-            b2.pack(fill=tk.X, pady=6)
-            b3 = ttk.Button(frm, text='  Historial de stock', command=lambda: _open_and_close(show_stock_history_window), width=28)
-            b3.pack(fill=tk.X, pady=6)
-            b4 = ttk.Button(frm, text='  Cierre de caja', command=lambda: _open_and_close(show_cierre_caja), width=28)
-            b4.pack(fill=tk.X, pady=6)
-            b5 = ttk.Button(frm, text='  Exportar (CSV)', command=lambda: _open_and_close(show_export_menu), width=28)
-            b5.pack(fill=tk.X, pady=6)
-
-            ttk.Separator(frm, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=pad)
-            ttk.Button(frm, text='Cerrar', command=win.destroy).pack(pady=4)
+            btn_cfg = {'fg_color': colors.get('frame', '#1b1b1f'), 'text_color': colors.get('text', '#e6eef8'), 'width': 280}
+            ctk.CTkButton(frm, text='Facturas finalizadas', command=lambda: _open_and_close(show_facturas), **btn_cfg).pack(fill=tk.X, pady=6)
+            ctk.CTkButton(frm, text='Facturas en pausa', command=lambda: _open_and_close(show_paused_invoices), **btn_cfg).pack(fill=tk.X, pady=6)
+            ctk.CTkButton(frm, text='Historial de stock', command=lambda: _open_and_close(show_stock_history_window), **btn_cfg).pack(fill=tk.X, pady=6)
+            ctk.CTkButton(frm, text='Cierre de caja', command=lambda: _open_and_close(show_cierre_caja), **btn_cfg).pack(fill=tk.X, pady=6)
+            ctk.CTkButton(frm, text='Exportar (CSV)', command=lambda: _open_and_close(show_export_menu), **btn_cfg).pack(fill=tk.X, pady=6)
+            ctk.CTkButton(frm, text='Cerrar', command=win.destroy, **btn_cfg).pack(pady=8)
         except Exception:
             # fallback to old historial window if present
             try:

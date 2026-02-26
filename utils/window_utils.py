@@ -91,14 +91,20 @@ def set_native_titlebar_black(win: Union[tk.Toplevel, tk.Tk]):
 def enforce_custom_titlebar(win: Union[tk.Toplevel, tk.Tk], title: str = None, colors: dict = None, fonts: dict = None):
     """Replace native decorations with a custom black titlebar and return a content frame.
 
-    This should be called early in a window's __init__ before adding other widgets.
-    It will attempt to call overrideredirect(True) and create a title bar with
-    minimize/maximize/close buttons and drag-to-move behavior. Returns a Tk Frame
-    that the caller should use as the main content parent.
+    On macOS and Linux uses the system default title bar (no custom bar) to avoid
+    visual issues. On Windows uses a custom title bar with minimize and close buttons.
     """
+    # On macOS and Linux use native title bar only (no overrideredirect, no custom bar)
+    if sys.platform != 'win32':
+        try:
+            content = tk.Frame(win, bg=(colors.get('bg') if colors else win.cget('bg')))
+            content.pack(side='top', fill='both', expand=True)
+            return content
+        except Exception:
+            return win
+
     try:
-        # prefer to make a custom titlebar
-        # Avoid forcing overrideredirect on the root Tk window (or CTk)
+        # Windows: custom titlebar
         try:
             is_root = isinstance(win, tk.Tk) or win.__class__.__name__.endswith('CTk')
         except Exception:
@@ -125,34 +131,10 @@ def enforce_custom_titlebar(win: Union[tk.Toplevel, tk.Tk], title: str = None, c
             except Exception:
                 lbl = None
 
-            # control buttons
+            # control buttons (minimize and close only; no maximize to avoid visual clutter)
             def _min():
                 try:
                     win.iconify()
-                except Exception:
-                    pass
-
-            def _toggle_max():
-                try:
-                    if getattr(win, '_is_maximized', False):
-                        try:
-                            win.state('normal')
-                        except Exception:
-                            if getattr(win, '_normal_geometry', None):
-                                win.geometry(win._normal_geometry)
-                        win._is_maximized = False
-                    else:
-                        try:
-                            win._normal_geometry = win.geometry()
-                        except Exception:
-                            win._normal_geometry = None
-                        try:
-                            win.state('zoomed')
-                        except Exception:
-                            sw = win.winfo_screenwidth()
-                            sh = win.winfo_screenheight()
-                            win.geometry(f"{sw}x{sh}+0+0")
-                        win._is_maximized = True
                 except Exception:
                     pass
 
@@ -165,8 +147,6 @@ def enforce_custom_titlebar(win: Union[tk.Toplevel, tk.Tk], title: str = None, c
             try:
                 btn_min = tk.Button(tb, text='🗕', bg='black', fg=(colors.get('text') if colors else 'white'), bd=0, activebackground='black', activeforeground=(colors.get('text') if colors else 'white'), command=_min)
                 btn_min.pack(side='right', padx=2)
-                btn_max = tk.Button(tb, text='🗖', bg='black', fg=(colors.get('text') if colors else 'white'), bd=0, activebackground='black', activeforeground=(colors.get('text') if colors else 'white'), command=_toggle_max)
-                btn_max.pack(side='right', padx=2)
                 btn_close = tk.Button(tb, text='✕', bg='black', fg=(colors.get('text') if colors else 'white'), bd=0, activebackground='black', activeforeground=(colors.get('text') if colors else 'white'), command=_close)
                 btn_close.pack(side='right', padx=6)
             except Exception:
@@ -201,7 +181,6 @@ def enforce_custom_titlebar(win: Union[tk.Toplevel, tk.Tk], title: str = None, c
         except Exception:
             content = win
 
-        # attempt to apply native coloring as well
         try:
             set_native_titlebar_black(win)
         except Exception:

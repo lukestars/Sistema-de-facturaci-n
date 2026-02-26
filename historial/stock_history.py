@@ -10,8 +10,9 @@ def show_stock_history_window(app):
     win.transient(app.root)
     win.resizable(True, True)
     _UI_SCALE = getattr(app, '_ui_scale', 1.15)
-    w, h = int(960 * _UI_SCALE), int(520 * _UI_SCALE)
-    win.minsize(int(700 * _UI_SCALE), int(400 * _UI_SCALE))
+    # Ventana más alta para ver la tabla completa; scroll lateral siempre usable
+    w, h = int(980 * _UI_SCALE), int(580 * _UI_SCALE)
+    win.minsize(int(720 * _UI_SCALE), int(480 * _UI_SCALE))
     try:
         win.geometry(f'{w}x{h}')
     except Exception:
@@ -47,9 +48,9 @@ def show_stock_history_window(app):
         s.configure('StockHist.Treeview', background=panel_bg, fieldbackground=panel_bg, foreground=fg_text, rowheight=row_h)
         s.configure('StockHist.Treeview.Heading', background=panel_bg, foreground=fg_text, font=('Helvetica', int(10 * _UI_SCALE), 'bold'))
         s.map('StockHist.Treeview.Heading', background=[('active', panel_bg)], foreground=[('active', fg_text)])
-        tree = ttk.Treeview(frm, columns=cols, show='headings', height=18, style='StockHist.Treeview')
+        tree = ttk.Treeview(frm, columns=cols, show='headings', height=22, style='StockHist.Treeview')
     except Exception:
-        tree = ttk.Treeview(frm, columns=cols, show='headings', height=18)
+        tree = ttk.Treeview(frm, columns=cols, show='headings', height=22)
     tree.heading('fecha_hora', text='Fecha y hora')
     tree.heading('codigo', text='Código')
     tree.heading('producto', text='Producto')
@@ -70,7 +71,6 @@ def show_stock_history_window(app):
     frm.rowconfigure(1, weight=1)
     vsb = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=tree.yview)
     tree.configure(yscrollcommand=vsb.set)
-    # use grid inside tree_frame to avoid mixing pack/grid in same container
     tree.grid(row=0, column=0, sticky='nsew')
     vsb.grid(row=0, column=1, sticky='ns')
     tree_frame.rowconfigure(0, weight=1)

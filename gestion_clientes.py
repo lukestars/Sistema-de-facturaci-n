@@ -1,3 +1,4 @@
+import sys
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk
@@ -13,114 +14,107 @@ class GestionClientes(ctk.CTkToplevel):
 
     def __init__(self, master=None, on_select=None, **kwargs):
         super().__init__(master=master, **kwargs)
-        # Usar barra de título personalizada (negra) para esta ventana
-        try:
-            self.overrideredirect(True)
-        except Exception:
-            pass
         self.title("Gestión de Clientes")
         self.on_select = on_select
         colors, fonts = apply_styles()
         self.colors = colors
         self.fonts = fonts
 
-        # intentar colorear la barra nativa (Windows) después de que la ventana se haya mapeado
-        try:
-            from utils.window_utils import set_native_titlebar_black
+        # En macOS/Linux usar barra de título nativa; en Windows barra custom
+        use_native_titlebar = sys.platform != 'win32'
+        if not use_native_titlebar:
             try:
-                # aplicar tras un breve delay para asegurar HWND válido
+                self.overrideredirect(True)
+            except Exception:
+                pass
+            try:
+                from utils.window_utils import set_native_titlebar_black
                 self.after(80, lambda: set_native_titlebar_black(self))
             except Exception:
                 pass
-        except Exception:
-            pass
 
-        # (size will be adjusted to fit content further down)
-
-        # Responsivo: reservar fila 0 para barra de título
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=2)
-        self.grid_rowconfigure(0, weight=0)
-        self.grid_rowconfigure(1, weight=1)
+        content_row = 0 if use_native_titlebar else 1
+        self.grid_rowconfigure(content_row, weight=1)
+        if not use_native_titlebar:
+            self.grid_rowconfigure(0, weight=0)
 
-        # Barra de título personalizada
-        try:
-            title_bar = tk.Frame(self, bg='black', relief='flat')
-            title_bar.grid(row=0, column=0, columnspan=2, sticky='ew')
-            title_bar.grid_columnconfigure(0, weight=1)
-            title_lbl = tk.Label(title_bar, text='Gestión de Clientes', bg='black', fg=self.colors.get('text'), font=self.fonts.get('heading'))
-            title_lbl.grid(row=0, column=0, sticky='w', padx=(8, 0), pady=4)
-            # botones: minimizar, maximizar/restaurar, cerrar
-            def _minimize():
-                try:
-                    self.iconify()
-                except Exception:
-                    pass
+        # Barra de título personalizada solo en Windows
+        if not use_native_titlebar:
+            try:
+                title_bar = tk.Frame(self, bg='black', relief='flat')
+                title_bar.grid(row=0, column=0, columnspan=2, sticky='ew')
+                title_bar.grid_columnconfigure(0, weight=1)
+                title_lbl = tk.Label(title_bar, text='Gestión de Clientes', bg='black', fg=self.colors.get('text'), font=self.fonts.get('heading'))
+                title_lbl.grid(row=0, column=0, sticky='w', padx=(8, 0), pady=4)
 
-            def _toggle_maximize():
-                try:
-                    if getattr(self, '_is_maximized', False):
-                        # restaurar
-                        try:
-                            self.state('normal')
-                        except Exception:
-                            if getattr(self, '_normal_geometry', None):
-                                self.geometry(self._normal_geometry)
-                        self._is_maximized = False
-                        max_btn.configure(text='🗖')
-                    else:
-                        # guardar geometría y maximizar
-                        try:
-                            self._normal_geometry = self.geometry()
-                        except Exception:
-                            self._normal_geometry = None
-                        try:
-                            self.state('zoomed')
-                        except Exception:
-                            sw = self.winfo_screenwidth()
-                            sh = self.winfo_screenheight()
-                            self.geometry(f"{sw}x{sh}+0+0")
-                        self._is_maximized = True
-                        max_btn.configure(text='🗗')
-                except Exception:
-                    pass
+                def _minimize():
+                    try:
+                        self.iconify()
+                    except Exception:
+                        pass
 
-            min_btn = tk.Button(title_bar, text='🗕', bg='black', fg=self.colors.get('text'), bd=0, activebackground='black', activeforeground=self.colors.get('text'), command=_minimize)
-            min_btn.grid(row=0, column=1, sticky='e', padx=2)
-            max_btn = tk.Button(title_bar, text='🗖', bg='black', fg=self.colors.get('text'), bd=0, activebackground='black', activeforeground=self.colors.get('text'), command=_toggle_maximize)
-            max_btn.grid(row=0, column=2, sticky='e', padx=2)
-            close_btn = tk.Button(title_bar, text='✕', bg='black', fg=self.colors.get('text'), bd=0, activebackground='black', activeforeground=self.colors.get('text'), command=self.destroy)
-            close_btn.grid(row=0, column=3, sticky='e', padx=6)
+                def _toggle_maximize():
+                    try:
+                        if getattr(self, '_is_maximized', False):
+                            try:
+                                self.state('normal')
+                            except Exception:
+                                if getattr(self, '_normal_geometry', None):
+                                    self.geometry(self._normal_geometry)
+                            self._is_maximized = False
+                            max_btn.configure(text='🗖')
+                        else:
+                            try:
+                                self._normal_geometry = self.geometry()
+                            except Exception:
+                                self._normal_geometry = None
+                            try:
+                                self.state('zoomed')
+                            except Exception:
+                                sw = self.winfo_screenwidth()
+                                sh = self.winfo_screenheight()
+                                self.geometry(f"{sw}x{sh}+0+0")
+                            self._is_maximized = True
+                            max_btn.configure(text='🗗')
+                    except Exception:
+                        pass
 
-            # mover ventana arrastrando la barra
-            def _start_move(event):
-                self._drag_offset_x = event.x
-                self._drag_offset_y = event.y
+                min_btn = tk.Button(title_bar, text='🗕', bg='black', fg=self.colors.get('text'), bd=0, activebackground='black', activeforeground=self.colors.get('text'), command=_minimize)
+                min_btn.grid(row=0, column=1, sticky='e', padx=2)
+                max_btn = tk.Button(title_bar, text='🗖', bg='black', fg=self.colors.get('text'), bd=0, activebackground='black', activeforeground=self.colors.get('text'), command=_toggle_maximize)
+                max_btn.grid(row=0, column=2, sticky='e', padx=2)
+                close_btn = tk.Button(title_bar, text='✕', bg='black', fg=self.colors.get('text'), bd=0, activebackground='black', activeforeground=self.colors.get('text'), command=self.destroy)
+                close_btn.grid(row=0, column=3, sticky='e', padx=6)
 
-            def _on_move(event):
-                try:
-                    x = event.x_root - getattr(self, '_drag_offset_x', 0)
-                    y = event.y_root - getattr(self, '_drag_offset_y', 0)
-                    self.geometry(f'+{x}+{y}')
-                except Exception:
-                    pass
+                def _start_move(event):
+                    self._drag_offset_x = event.x
+                    self._drag_offset_y = event.y
 
-            title_bar.bind('<Button-1>', _start_move)
-            title_bar.bind('<B1-Motion>', _on_move)
-            title_lbl.bind('<Button-1>', _start_move)
-            title_lbl.bind('<B1-Motion>', _on_move)
-            # doble click maximiza/restaura
-            title_lbl.bind('<Double-1>', lambda e: _toggle_maximize())
-        except Exception:
-            pass
+                def _on_move(event):
+                    try:
+                        x = event.x_root - getattr(self, '_drag_offset_x', 0)
+                        y = event.y_root - getattr(self, '_drag_offset_y', 0)
+                        self.geometry(f'+{x}+{y}')
+                    except Exception:
+                        pass
+
+                title_bar.bind('<Button-1>', _start_move)
+                title_bar.bind('<B1-Motion>', _on_move)
+                title_lbl.bind('<Button-1>', _start_move)
+                title_lbl.bind('<B1-Motion>', _on_move)
+                title_lbl.bind('<Double-1>', lambda e: _toggle_maximize())
+            except Exception:
+                pass
 
         # Reorganizar: lista a la izquierda, registro a la derecha en su propio recuadro
         left = ctk.CTkFrame(self, fg_color=self.colors.get('frame'))
-        left.grid(row=1, column=0, sticky='nsew', padx=8, pady=8)
+        left.grid(row=content_row, column=0, sticky='nsew', padx=8, pady=8)
         left.grid_rowconfigure(0, weight=1)
         left.grid_columnconfigure(0, weight=1)
         right = ctk.CTkFrame(self, fg_color=self.colors.get('frame'))
-        right.grid(row=1, column=1, sticky='nsew', padx=8, pady=8)
+        right.grid(row=content_row, column=1, sticky='nsew', padx=8, pady=8)
         right.grid_columnconfigure(0, weight=1)
 
         style = ttk.Style()

@@ -17,6 +17,15 @@ def show_facturas(app):
     """Abre la ventana de historial de facturas finalizadas."""
     facturas_base = getattr(app, '_facturas_dir', os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'facturas'))
     ui_scale = getattr(app, '_ui_scale', 1.15)
+    colors = getattr(app, 'colors', None) or getattr(app, 'theme_colors', {})
+    panel_bg = colors.get('frame', '#1b1b1f')
+    fg_text = colors.get('text', '#e6eef8')
+    bg_main = colors.get('bg', '#121212')
+    border_gray = colors.get('muted', '#4a4a4f')
+    detail_bg = colors.get('frame', '#1b1b1f')
+    detail_border = '#3a3a3f'
+    accent = colors.get('accent', '#22c55e')
+
     os.makedirs(facturas_base, exist_ok=True)
     win = tk.Toplevel(app.root)
     win.title('Historial de Facturas Finalizadas')
@@ -42,11 +51,9 @@ def show_facturas(app):
     main_pane.pack(fill=tk.BOTH, expand=True, padx=pad, pady=pad)
     try:
         st = ttk.Style()
-        st.configure('Small.Treeview', rowheight=int(22 * ui_scale), font=('Helvetica', int(9 * ui_scale)))
-        st.configure('Small.Treeview.Heading', font=('Helvetica', int(10 * ui_scale), 'bold'))
-        _panel = getattr(app, 'theme_colors', {}).get('panel', '#0e1014')
-        _fg = getattr(app, 'theme_colors', {}).get('fg_text', '#E8ECF4')
-        st.map('Small.Treeview.Heading', background=[('active', _panel)], foreground=[('active', _fg)])
+        st.configure('Small.Treeview', rowheight=int(22 * ui_scale), font=('Helvetica', int(9 * ui_scale)), background=panel_bg, fieldbackground=panel_bg, foreground=fg_text)
+        st.configure('Small.Treeview.Heading', font=('Helvetica', int(10 * ui_scale), 'bold'), background=detail_border, foreground=fg_text)
+        st.map('Small.Treeview.Heading', background=[('active', border_gray)], foreground=[('active', fg_text)])
     except Exception:
         pass
 
@@ -57,20 +64,22 @@ def show_facturas(app):
 
     list_frame = ttk.Frame(left)
     list_frame.pack(fill=tk.BOTH, expand=True)
-    tree = ttk.Treeview(list_frame, columns=('Nro', 'FechaHora', 'Productos', 'Total', 'Pago'), show='tree headings', height=20, style='Small.Treeview')
+    tree_wrap = tk.Frame(list_frame, bg=border_gray, highlightbackground=border_gray, highlightcolor=border_gray, highlightthickness=1)
+    tree_wrap.pack(fill=tk.BOTH, expand=True)
+    tree = ttk.Treeview(tree_wrap, columns=('Nro', 'FechaHora', 'Productos', 'Total', 'Pago'), show='tree headings', height=20, style='Small.Treeview')
     tree.heading('#0', text='Fecha')
     tree.heading('Nro', text='Nro')
     tree.heading('FechaHora', text='Fecha/Hora')
     tree.heading('Productos', text='Productos')
     tree.heading('Total', text='Total (BS/$)')
     tree.heading('Pago', text='Método')
-    tree.column('#0', width=110)
-    tree.column('Nro', width=100, anchor=tk.CENTER)
-    tree.column('FechaHora', width=150, anchor=tk.W)
-    tree.column('Productos', width=360)
-    tree.column('Total', width=120, anchor=tk.E)
-    tree.column('Pago', width=110, anchor=tk.CENTER)
-    vsb = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=tree.yview)
+    tree.column('#0', width=72, minwidth=56, stretch=False, anchor=tk.W)
+    tree.column('Nro', width=64, minwidth=52, stretch=False, anchor=tk.CENTER)
+    tree.column('FechaHora', width=100, minwidth=80, stretch=False, anchor=tk.W)
+    tree.column('Productos', width=140, minwidth=80, stretch=True, anchor=tk.W)
+    tree.column('Total', width=88, minwidth=72, stretch=False, anchor=tk.E)
+    tree.column('Pago', width=80, minwidth=64, stretch=False, anchor=tk.CENTER)
+    vsb = ttk.Scrollbar(tree_wrap, orient=tk.VERTICAL, command=tree.yview)
     tree.configure(yscrollcommand=vsb.set)
     vsb.pack(side=tk.RIGHT, fill=tk.Y)
     tree.pack(fill=tk.BOTH, expand=True)
@@ -92,7 +101,12 @@ def show_facturas(app):
                         inv = json.load(f)
                 except (OSError, json.JSONDecodeError, TypeError):
                     continue
-                productos_str = ', '.join(f"{p.get('name', '')}({p.get('qty', '')})" for p in inv.get('productos', []))
+                def _prod_preview(p):
+                    name = (p.get('name') or '').strip()
+                    if name:
+                        name = name[0].upper() + name[1:] if len(name) > 1 else name.upper()
+                    return f"{name}({p.get('qty', '')})"
+                productos_str = ', '.join(_prod_preview(p) for p in inv.get('productos', []))
                 preview = productos_str if len(productos_str) <= 80 else productos_str[:77] + '...'
                 fecha_h = inv.get('datetime') or inv.get('timestamp', '')
                 total_str = f"{inv.get('total_bs', 0):.2f} BS / {inv.get('total_usd', 0):.2f} $"
@@ -128,16 +142,16 @@ def show_facturas(app):
     detail_hdr.pack(anchor=tk.W, pady=(6, 4), padx=8)
     empty_hint = ttk.Label(right, text='No hay facturas finalizadas.' if not invoices_map else 'Seleccione una factura de la lista.', font=('Helvetica', 10))
     empty_hint.pack(anchor=tk.W, padx=8, pady=(0, 4))
-    outer_box = tk.Frame(right, bg='#bfbfbf')
+    outer_box = tk.Frame(right, bg=border_gray)
     outer_box.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
-    panel = tk.Frame(outer_box, bg='#1e1e1e')
+    panel = tk.Frame(outer_box, bg=panel_bg)
     panel.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
     panel.columnconfigure(0, weight=1)
     panel.rowconfigure(2, weight=1)
 
-    _detail_bg = '#2a2a2a'
-    _detail_border = '#404040'
-    _detail_fg = '#FFFFFF'
+    _detail_bg = detail_bg
+    _detail_border = detail_border
+    _detail_fg = fg_text
 
     def _detail_value_lbl(parent, textvariable, **kw):
         f = tk.Frame(parent, bg=_detail_border, padx=1, pady=1)
@@ -145,7 +159,7 @@ def show_facturas(app):
         lbl.pack(fill=tk.BOTH, expand=True)
         return f
 
-    info_frame = tk.Frame(panel, bg='#1e1e1e')
+    info_frame = tk.Frame(panel, bg=panel_bg)
     info_frame.grid(row=0, column=0, sticky='ew', padx=8, pady=4)
     info_frame.columnconfigure(1, weight=1)
     info_vars = {
@@ -161,43 +175,43 @@ def show_facturas(app):
         'punto_amt': tk.StringVar(value='0.00 BS')
     }
     payment_method_var = tk.StringVar(value='')
-    tk.Label(info_frame, text='ID:', bg='#1e1e1e', fg='#FFFFFF', font=('Helvetica', 9)).grid(row=0, column=0, sticky=tk.W, pady=1)
+    tk.Label(info_frame, text='ID:', bg=panel_bg, fg=fg_text, font=('Helvetica', 9)).grid(row=0, column=0, sticky=tk.W, pady=1)
     _detail_value_lbl(info_frame, info_vars['id']).grid(row=0, column=1, sticky='ew', pady=1)
-    tk.Label(info_frame, text='Fecha:', bg='#1e1e1e', fg='#FFFFFF', font=('Helvetica', 9)).grid(row=1, column=0, sticky=tk.W, pady=1)
+    tk.Label(info_frame, text='Fecha:', bg=panel_bg, fg=fg_text, font=('Helvetica', 9)).grid(row=1, column=0, sticky=tk.W, pady=1)
     _detail_value_lbl(info_frame, info_vars['timestamp']).grid(row=1, column=1, sticky='ew', pady=1)
-    tk.Label(info_frame, text='Método de Pago:', bg='#1e1e1e', fg='#FFFFFF', font=('Helvetica', 9)).grid(row=2, column=0, sticky=tk.W, pady=1)
+    tk.Label(info_frame, text='Método de Pago:', bg=panel_bg, fg=fg_text, font=('Helvetica', 9)).grid(row=2, column=0, sticky=tk.W, pady=1)
     f_pm = tk.Frame(info_frame, bg=_detail_border, padx=1, pady=1)
     payment_method_value_lbl = tk.Label(f_pm, textvariable=payment_method_var, font=('Helvetica', 9, 'bold'), bg=_detail_bg, fg=_detail_fg, anchor=tk.W, padx=6, pady=2)
     payment_method_value_lbl.pack(fill=tk.BOTH, expand=True)
     f_pm.grid(row=2, column=1, sticky='ew', pady=1)
-    tk.Label(info_frame, text='Subtotal:', bg='#1e1e1e', fg='#FFFFFF', font=('Helvetica', 9)).grid(row=3, column=0, sticky=tk.W, pady=1)
+    tk.Label(info_frame, text='Subtotal:', bg=panel_bg, fg=fg_text, font=('Helvetica', 9)).grid(row=3, column=0, sticky=tk.W, pady=1)
     _detail_value_lbl(info_frame, info_vars['subtotal']).grid(row=3, column=1, sticky='ew', pady=1)
-    tk.Label(info_frame, text='IVA:', bg='#1e1e1e', fg='#FFFFFF', font=('Helvetica', 9)).grid(row=4, column=0, sticky=tk.W, pady=1)
+    tk.Label(info_frame, text='IVA:', bg=panel_bg, fg=fg_text, font=('Helvetica', 9)).grid(row=4, column=0, sticky=tk.W, pady=1)
     _detail_value_lbl(info_frame, info_vars['iva']).grid(row=4, column=1, sticky='ew', pady=1)
-    tk.Label(info_frame, text='Total:', bg='#1e1e1e', fg='#FFFFFF', font=('Helvetica', 9, 'bold')).grid(row=5, column=0, sticky=tk.W, pady=1)
+    tk.Label(info_frame, text='Total:', bg=panel_bg, fg=fg_text, font=('Helvetica', 9, 'bold')).grid(row=5, column=0, sticky=tk.W, pady=1)
     f_total = tk.Frame(info_frame, bg=_detail_border, padx=1, pady=1)
-    tk.Label(f_total, textvariable=info_vars['total'], font=('Helvetica', 10, 'bold'), bg=_detail_bg, fg=app.theme_colors.get('accent', '#0062ff'), anchor=tk.W, padx=6, pady=2).pack(fill=tk.BOTH, expand=True)
+    tk.Label(f_total, textvariable=info_vars['total'], font=('Helvetica', 10, 'bold'), bg=_detail_bg, fg=accent, anchor=tk.W, padx=6, pady=2).pack(fill=tk.BOTH, expand=True)
     f_total.grid(row=5, column=1, sticky='ew', pady=1)
-    tk.Label(info_frame, text='Ref. Pago Móvil:', bg='#1e1e1e', fg='#FFFFFF', font=('Helvetica', 9)).grid(row=6, column=0, sticky=tk.W, pady=1)
+    tk.Label(info_frame, text='Ref. Pago Móvil:', bg=panel_bg, fg=fg_text, font=('Helvetica', 9)).grid(row=6, column=0, sticky=tk.W, pady=1)
     _detail_value_lbl(info_frame, info_vars['pago_ref']).grid(row=6, column=1, sticky='ew', pady=1)
-    tk.Label(info_frame, text='Pago móvil:', bg='#1e1e1e', fg='#FFFFFF', font=('Helvetica', 9)).grid(row=7, column=0, sticky=tk.W, pady=1)
+    tk.Label(info_frame, text='Pago móvil:', bg=panel_bg, fg=fg_text, font=('Helvetica', 9)).grid(row=7, column=0, sticky=tk.W, pady=1)
     _detail_value_lbl(info_frame, info_vars['pago_movil_amt']).grid(row=7, column=1, sticky='ew', pady=1)
-    tk.Label(info_frame, text='Dólar:', bg='#1e1e1e', fg='#FFFFFF', font=('Helvetica', 9)).grid(row=8, column=0, sticky=tk.W, pady=1)
+    tk.Label(info_frame, text='Dólar:', bg=panel_bg, fg=fg_text, font=('Helvetica', 9)).grid(row=8, column=0, sticky=tk.W, pady=1)
     _detail_value_lbl(info_frame, info_vars['dolar_amt']).grid(row=8, column=1, sticky='ew', pady=1)
-    tk.Label(info_frame, text='Efectivo:', bg='#1e1e1e', fg='#FFFFFF', font=('Helvetica', 9)).grid(row=9, column=0, sticky=tk.W, pady=1)
+    tk.Label(info_frame, text='Efectivo:', bg=panel_bg, fg=fg_text, font=('Helvetica', 9)).grid(row=9, column=0, sticky=tk.W, pady=1)
     _detail_value_lbl(info_frame, info_vars['efectivo_amt']).grid(row=9, column=1, sticky='ew', pady=1)
-    tk.Label(info_frame, text='Punto de Venta:', bg='#1e1e1e', fg='#FFFFFF', font=('Helvetica', 9)).grid(row=10, column=0, sticky=tk.W, pady=1)
+    tk.Label(info_frame, text='Punto de Venta:', bg=panel_bg, fg=fg_text, font=('Helvetica', 9)).grid(row=10, column=0, sticky=tk.W, pady=1)
     _detail_value_lbl(info_frame, info_vars['punto_amt']).grid(row=10, column=1, sticky='ew', pady=1)
-    methods_box = tk.Frame(panel, bg='#1e1e1e')
+    methods_box = tk.Frame(panel, bg=panel_bg)
     methods_box.grid(row=1, column=0, sticky='w', padx=8, pady=(6, 0))
 
-    text_container = tk.Frame(panel, bg='#1e1e1e')
+    text_container = tk.Frame(panel, bg=panel_bg)
     text_container.grid(row=2, column=0, sticky='nsew', padx=8, pady=4)
     text_container.columnconfigure(0, weight=1)
     text_container.rowconfigure(0, weight=1)
-    products_text = tk.Text(text_container, wrap=tk.WORD, height=12, state='disabled', background='#1e1e1e', foreground='#FFFFFF', insertbackground='#FFFFFF', bd=0, highlightthickness=0, font=('Helvetica', 10))
+    products_text = tk.Text(text_container, wrap=tk.WORD, height=12, state='disabled', background=panel_bg, foreground=fg_text, insertbackground=fg_text, bd=0, highlightthickness=0, font=('Helvetica', 10))
     products_text.grid(row=0, column=0, sticky='nsew')
-    det_scroll = tk.Scrollbar(text_container, orient=tk.VERTICAL, command=products_text.yview, bg='#1e1e1e', troughcolor='#1e1e1e', activebackground='#1e1e1e')
+    det_scroll = tk.Scrollbar(text_container, orient=tk.VERTICAL, command=products_text.yview, bg=panel_bg, troughcolor=panel_bg, activebackground=panel_bg)
     products_text.configure(yscrollcommand=det_scroll.set)
     det_scroll.grid(row=0, column=1, sticky='ns')
 
@@ -229,18 +243,20 @@ def show_facturas(app):
         if not sel:
             messagebox.showwarning('Seleccionar', 'Seleccione una factura')
             return
-        vals = tree.item(sel[0], 'values')
-        try:
-            idx = int(vals[0].replace(' [Anulada]', '').strip()) - 1
-        except (ValueError, TypeError):
-            idx = 0
-        facturas_list = getattr(app, 'facturas', [])
-        if idx < 0 or idx >= len(facturas_list):
-            messagebox.showwarning('Reimprimir', 'Factura no disponible para reimprimir')
+        item = sel[0]
+        if item in date_children:
+            messagebox.showinfo('Reimprimir', 'Seleccione una factura (no una carpeta de fecha)')
             return
-        factura = facturas_list[idx]
+        inv = invoices_map.get(item)
+        if not inv:
+            messagebox.showwarning('Reimprimir', 'Factura no encontrada')
+            return
+        file_path = inv.get('file', '')
+        if not file_path or not os.path.isfile(file_path):
+            messagebox.showwarning('Reimprimir', 'Archivo de factura no disponible para reimprimir')
+            return
         try:
-            os.startfile(factura.get('file', ''))
+            os.startfile(file_path, 'print')
             messagebox.showinfo('Impresión', 'Enviado a la impresora')
         except (OSError, AttributeError) as e:
             messagebox.showerror('Error', f'No se pudo reimprimir: {e}')
@@ -436,7 +452,9 @@ def show_facturas(app):
             products_text.configure(state='normal')
             products_text.delete('1.0', tk.END)
             for p in inv.get('productos', []):
-                name = p.get('name')
+                name = (p.get('name') or '').strip()
+                if name:
+                    name = name[0].upper() + name[1:] if len(name) > 1 else name.upper()
                 qty = p.get('qty')
                 price = p.get('price', 0.0)
                 products_text.insert(tk.END, f"{name} — Cant.: {qty} — Precio: {price:.2f} $\n")
