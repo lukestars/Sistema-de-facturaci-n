@@ -64,6 +64,15 @@ def open_stock_dialog(parent):
                         pass
                 except Exception:
                     pass
+                # log stock change (cantidad anterior -> nueva) in history
+                try:
+                    code = vals[0] if len(vals) > 0 else str(pid)
+                except Exception:
+                    code = str(pid)
+                try:
+                    parent._log_stock_change(code, name, current_stock, current_stock + amt, 'agregado')
+                except Exception:
+                    pass
                 parent.show_status('Stock actualizado')
                 parent._close_dialog(dialog)
             else:
@@ -89,7 +98,8 @@ def open_stock_dialog(parent):
         except Exception:
             pass
         try:
-            parent._center_window(dialog, dw=420, dh=220)
+            from utils.window_utils import center_window
+            center_window(parent, dialog, w=420, h=220)
         except Exception:
             pass
         try:

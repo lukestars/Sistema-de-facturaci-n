@@ -121,7 +121,8 @@ def open_edit_product_dialog(parent):
             pass
 
         try:
-            parent._center_window(dialog, dw=520, dh=360)
+            from utils.window_utils import center_window
+            center_window(parent, dialog, w=520, h=360)
         except Exception:
             pass
 

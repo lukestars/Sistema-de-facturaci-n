@@ -34,6 +34,57 @@ def fit_window(win: Union[tk.Toplevel, tk.Tk], padding: int = 40, enlarge_factor
         pass
 
 
+def center_window(parent: Union[tk.Toplevel, tk.Tk, object], win: Union[tk.Toplevel, tk.Tk], w: int = None, h: int = None):
+    """Center `win` relative to `parent` when possible, otherwise center on screen.
+
+    parent may be the application object (having `root`) or a window instance.
+    If w/h are provided, they are used to set the geometry size before centering.
+    """
+    try:
+        try:
+            win.update_idletasks()
+        except Exception:
+            pass
+
+        # determine target size
+        tw = w if (w and int(w) > 0) else win.winfo_reqwidth()
+        th = h if (h and int(h) > 0) else win.winfo_reqheight()
+
+        # attempt to center relative to parent.root or parent window
+        px = py = None
+        pw = ph = None
+        try:
+            # if parent exposes root (app object), use it
+            root = getattr(parent, 'root', None) or parent
+            root.update_idletasks()
+            px = root.winfo_rootx()
+            py = root.winfo_rooty()
+            pw = root.winfo_width()
+            ph = root.winfo_height()
+        except Exception:
+            px = py = pw = ph = None
+
+        if px is not None and pw is not None:
+            x = px + max(0, int((pw - tw) / 2))
+            y = py + max(0, int((ph - th) / 2))
+        else:
+            sw = win.winfo_screenwidth()
+            sh = win.winfo_screenheight()
+            x = max(0, int((sw - tw) / 2))
+            y = max(0, int((sh - th) / 2))
+
+        try:
+            win.geometry(f"{int(tw)}x{int(th)}+{x}+{y}")
+        except Exception:
+            try:
+                win.geometry(f"+{x}+{y}")
+            except Exception:
+                pass
+    except Exception:
+        # never raise from centering helper
+        pass
+
+
 def set_native_titlebar_black(win: Union[tk.Toplevel, tk.Tk]):
     """Try to set the native titlebar color to black on Windows.
 
@@ -94,98 +145,14 @@ def enforce_custom_titlebar(win: Union[tk.Toplevel, tk.Tk], title: str = None, c
     On macOS and Linux uses the system default title bar (no custom bar) to avoid
     visual issues. On Windows uses a custom title bar with minimize and close buttons.
     """
-    # On macOS and Linux use native title bar only (no overrideredirect, no custom bar)
-    if sys.platform != 'win32':
-        try:
-            content = tk.Frame(win, bg=(colors.get('bg') if colors else win.cget('bg')))
-            content.pack(side='top', fill='both', expand=True)
-            return content
-        except Exception:
-            return win
-
+    # Use native titlebar for all platforms to ensure minimize/maximize are available.
     try:
-        # Windows: custom titlebar
-        try:
-            is_root = isinstance(win, tk.Tk) or win.__class__.__name__.endswith('CTk')
-        except Exception:
-            is_root = False
-        try:
-            if not is_root:
-                win.overrideredirect(True)
-        except Exception:
-            pass
-
-        # create title bar
-        try:
-            tb = tk.Frame(win, bg='black', relief='flat', height=30)
-            tb.pack(side='top', fill='x')
-        except Exception:
-            tb = None
-
-        # title label
-        if tb is not None:
-            try:
-                lbl_txt = title if title is not None else win.title() or ''
-                lbl = tk.Label(tb, text=lbl_txt, bg='black', fg=(colors.get('text') if colors else 'white'))
-                lbl.pack(side='left', padx=8)
-            except Exception:
-                lbl = None
-
-            # control buttons (minimize and close only; no maximize to avoid visual clutter)
-            def _min():
-                try:
-                    win.iconify()
-                except Exception:
-                    pass
-
-            def _close():
-                try:
-                    win.destroy()
-                except Exception:
-                    pass
-
-            try:
-                btn_min = tk.Button(tb, text='🗕', bg='black', fg=(colors.get('text') if colors else 'white'), bd=0, activebackground='black', activeforeground=(colors.get('text') if colors else 'white'), command=_min)
-                btn_min.pack(side='right', padx=2)
-                btn_close = tk.Button(tb, text='✕', bg='black', fg=(colors.get('text') if colors else 'white'), bd=0, activebackground='black', activeforeground=(colors.get('text') if colors else 'white'), command=_close)
-                btn_close.pack(side='right', padx=6)
-            except Exception:
-                pass
-
-            # dragging
-            def _start(event):
-                win._drag_x = event.x
-                win._drag_y = event.y
-
-            def _drag(event):
-                try:
-                    x = event.x_root - getattr(win, '_drag_x', 0)
-                    y = event.y_root - getattr(win, '_drag_y', 0)
-                    win.geometry(f'+{x}+{y}')
-                except Exception:
-                    pass
-
-            try:
-                tb.bind('<Button-1>', _start)
-                tb.bind('<B1-Motion>', _drag)
-                if lbl is not None:
-                    lbl.bind('<Button-1>', _start)
-                    lbl.bind('<B1-Motion>', _drag)
-            except Exception:
-                pass
-
-        # content frame
-        try:
-            content = tk.Frame(win, bg=(colors.get('bg') if colors else win.cget('bg')))
-            content.pack(side='top', fill='both', expand=True)
-        except Exception:
-            content = win
-
+        content = tk.Frame(win, bg=(colors.get('bg') if colors else win.cget('bg')))
+        content.pack(side='top', fill='both', expand=True)
         try:
             set_native_titlebar_black(win)
         except Exception:
             pass
-
         return content
     except Exception:
         return win

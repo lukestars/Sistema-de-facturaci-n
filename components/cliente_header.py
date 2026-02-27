@@ -26,11 +26,12 @@ class ClienteHeader(ctk.CTkFrame):
         self.grid_columnconfigure(2, weight=1)
         self.grid_columnconfigure(3, weight=0)
         self.grid_columnconfigure(4, weight=0)
+        self.grid_columnconfigure(5, weight=0)
 
         # Botón de gestión a la izquierda, antes del prefijo 'Cliente:'
-        sel_btn = ctk.CTkButton(self, text="Gestion de cliente", command=self._open_client_selector,
-                    fg_color=self.colors.get('primary'), text_color=self.colors.get('text'))
-        sel_btn.grid(row=0, column=0, sticky='w', padx=(6, 6), pady=6)
+        self.sel_btn = ctk.CTkButton(self, text="Gestion de cliente", command=self._open_client_selector,
+                fg_color=self.colors.get('primary'), text_color=self.colors.get('text'))
+        self.sel_btn.grid(row=0, column=0, sticky='w', padx=(6, 6), pady=6)
 
         # Prefijo 'Cliente:' a la izquierda del recuadro
         ctk.CTkLabel(self, text="Cliente:", font=self.fonts.get('small')).grid(row=0, column=1, sticky='w', padx=(0, 6), pady=6)
@@ -55,15 +56,54 @@ class ClienteHeader(ctk.CTkFrame):
         self.client_ci_label = ctk.CTkLabel(box, text="-", font=self.fonts.get('small'))
         self.client_ci_label.grid(row=1, column=2, sticky='w', padx=8, pady=(2, 8))
 
+        # Insert venta controls component between client selector and config/logout
+        try:
+            from components.venta_controls import VentaControls
+        except Exception:
+            try:
+                from .venta_controls import VentaControls
+            except Exception:
+                VentaControls = None
+
+        if VentaControls is not None:
+            try:
+                vc = VentaControls(self, app=self.winfo_toplevel(), header_ref=self)
+                vc.grid(row=0, column=3, sticky='e', padx=(0, 6), pady=6)
+            except Exception:
+                vc = None
+
         # Botón de configuración (engranaje) y logout a la derecha
         if callable(self.on_config):
             cfg_btn = ctk.CTkButton(self, text='⚙', width=36, height=28, command=self.on_config,
                                     fg_color=self.colors.get('frame'), text_color=self.colors.get('text'))
-            cfg_btn.grid(row=0, column=3, sticky='e', padx=(0, 6), pady=6)
+            cfg_btn.grid(row=0, column=4, sticky='e', padx=(0, 6), pady=6)
 
         logout_btn = ctk.CTkButton(self, text="Cerrar Sesión", command=self._on_logout,
                        fg_color=self.colors.get('primary'), text_color=self.colors.get('text'))
-        logout_btn.grid(row=0, column=4, sticky='e', padx=(0, 6), pady=6)
+        logout_btn.grid(row=0, column=5, sticky='e', padx=(0, 6), pady=6)
+
+        # Reflect venta_open state: disable client selector if venta not open
+        try:
+            self.update_venta_state()
+        except Exception:
+            pass
+
+    def update_venta_state(self):
+        try:
+            app = self.winfo_toplevel()
+            venta_open = getattr(app, 'venta_open', False)
+            if venta_open:
+                try:
+                    self.sel_btn.configure(state='normal')
+                except Exception:
+                    pass
+            else:
+                try:
+                    self.sel_btn.configure(state='disabled')
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def _open_client_selector(self):
         try:

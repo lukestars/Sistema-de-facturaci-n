@@ -44,7 +44,8 @@ def open_history_window(parent):
 
         # center small window
         try:
-            parent._center_window(win, dw=700, dh=400)
+            from utils.window_utils import center_window
+            center_window(parent, win, w=700, h=400)
         except Exception:
             pass
 

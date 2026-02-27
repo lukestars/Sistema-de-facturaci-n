@@ -31,19 +31,21 @@ def style_window(app: Any, win: tk.Toplevel | tk.Tk) -> tk.Frame:
         return win
 
 
-def center_window(app: Any, win: tk.Toplevel | tk.Tk, w: int, h: int) -> None:
+# Reuse central centering helper from utils to keep behavior consistent across app
+try:
+    from utils.window_utils import center_window
+except Exception:
     try:
-        app.root.update_idletasks()
-        x = app.root.winfo_x() + (app.root.winfo_width() - w) // 2
-        y = app.root.winfo_y() + (app.root.winfo_height() - h) // 2
-        win.geometry(f'{w}x{h}+{x}+{y}')
+        from venta.utils.window_utils import center_window
     except Exception:
-        try:
-            # fallback: center on screen
-            sw = win.winfo_screenwidth()
-            sh = win.winfo_screenheight()
-            nx = (sw - w) // 2
-            ny = (sh - h) // 2
-            win.geometry(f'{w}x{h}+{nx}+{ny}')
-        except Exception:
-            pass
+        # fallback: minimal local implementation
+        def center_window(app: Any, win: tk.Toplevel | tk.Tk, w: int, h: int) -> None:
+            try:
+                win.update_idletasks()
+                sw = win.winfo_screenwidth()
+                sh = win.winfo_screenheight()
+                nx = (sw - w) // 2
+                ny = (sh - h) // 2
+                win.geometry(f'{w}x{h}+{nx}+{ny}')
+            except Exception:
+                pass

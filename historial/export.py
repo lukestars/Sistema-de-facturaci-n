@@ -20,7 +20,12 @@ def show_export_menu(app):
 
     win = tk.Toplevel(app.root)
     win.title('Exportar')
-    win.resizable(False, False)
+    win.resizable(True, True)
+    try:
+        from utils.window_utils import center_window
+        center_window(app, win)
+    except Exception:
+        pass
     content = dialogs.style_window(app, win)
     pad = 14
     ttk.Label(content, text='Exportar a CSV', font=('Helvetica', 12, 'bold')).pack(pady=(0, pad))

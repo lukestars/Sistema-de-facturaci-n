@@ -20,18 +20,8 @@ class GestionClientes(ctk.CTkToplevel):
         self.colors = colors
         self.fonts = fonts
 
-        # En macOS/Linux usar barra de título nativa; en Windows barra custom
-        use_native_titlebar = sys.platform != 'win32'
-        if not use_native_titlebar:
-            try:
-                self.overrideredirect(True)
-            except Exception:
-                pass
-            try:
-                from utils.window_utils import set_native_titlebar_black
-                self.after(80, lambda: set_native_titlebar_black(self))
-            except Exception:
-                pass
+        # Use native titlebar on all platforms to preserve minimize/maximize buttons
+        use_native_titlebar = True
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=2)

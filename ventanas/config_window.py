@@ -40,11 +40,10 @@ class ConfigWindow(ctk.CTkToplevel):
             x = int((sw - w) / 2)
             y = int((sh - h) / 2)
             self.geometry(f"{w}x{h}+{x}+{y}")
-            # hacer obligatorio el tamaño: impedir cambiarlo
+            # allow resizing so minimize/maximize buttons are available; keep fixed minimum
             try:
-                self.resizable(False, False)
+                self.resizable(True, True)
                 self.minsize(w, h)
-                self.maxsize(w, h)
             except Exception:
                 pass
         except Exception:
@@ -57,9 +56,8 @@ class ConfigWindow(ctk.CTkToplevel):
                 y = int((sh - h) / 2)
                 self.geometry(f"{w}x{h}+{x}+{y}")
                 try:
-                    self.resizable(False, False)
+                    self.resizable(True, True)
                     self.minsize(w, h)
-                    self.maxsize(w, h)
                 except Exception:
                     pass
             except Exception:
@@ -578,22 +576,19 @@ class ConfigWindow(ctk.CTkToplevel):
                     except Exception:
                         pass
                     try:
-                        self.update_idletasks()
-                        pwx = self.winfo_rootx()
-                        pwy = self.winfo_rooty()
-                        pww = self.winfo_width()
-                        pwh = self.winfo_height()
+                        from utils.window_utils import center_window
+                        center_window(self, dlg, w=520, h=460)
                     except Exception:
-                        pwx = pwy = 0
-                        pww = dlg.winfo_screenwidth()
-                        pwh = dlg.winfo_screenheight()
-                    dw, dh = 520, 460
-                    dx = pwx + max(0, int((pww - dw) / 2))
-                    dy = pwy + max(0, int((pwh - dh) / 2))
-                    try:
-                        dlg.geometry(f"{dw}x{dh}+{dx}+{dy}")
-                    except Exception:
-                        pass
+                        try:
+                            # fallback: best-effort geometry
+                            dw, dh = 520, 460
+                            sw = dlg.winfo_screenwidth()
+                            sh = dlg.winfo_screenheight()
+                            dx = int((sw - dw) / 2)
+                            dy = int((sh - dh) / 2)
+                            dlg.geometry(f"{dw}x{dh}+{dx}+{dy}")
+                        except Exception:
+                            pass
                     try:
                         dlg.transient(self)
                         dlg.grab_set()
@@ -695,27 +690,23 @@ class ConfigWindow(ctk.CTkToplevel):
                     dlg = ctk.CTkToplevel(self)
                     dlg.title('Editar cuenta')
                     try:
-                        dlg.resizable(False, False)
+                        dlg.resizable(True, True)
                     except Exception:
                         pass
                     # centrar
                     try:
-                        self.update_idletasks()
-                        pwx = self.winfo_rootx()
-                        pwy = self.winfo_rooty()
-                        pww = self.winfo_width()
-                        pwh = self.winfo_height()
+                        from utils.window_utils import center_window
+                        center_window(self, dlg, w=520, h=380)
                     except Exception:
-                        pwx = pwy = 0
-                        pww = dlg.winfo_screenwidth()
-                        pwh = dlg.winfo_screenheight()
-                    dw, dh = 520, 380
-                    dx = pwx + max(0, int((pww - dw) / 2))
-                    dy = pwy + max(0, int((pwh - dh) / 2))
-                    try:
-                        dlg.geometry(f"{dw}x{dh}+{dx}+{dy}")
-                    except Exception:
-                        pass
+                        try:
+                            dw, dh = 520, 380
+                            sw = dlg.winfo_screenwidth()
+                            sh = dlg.winfo_screenheight()
+                            dx = int((sw - dw) / 2)
+                            dy = int((sh - dh) / 2)
+                            dlg.geometry(f"{dw}x{dh}+{dx}+{dy}")
+                        except Exception:
+                            pass
                     try:
                         dlg.transient(self)
                         dlg.grab_set()
@@ -862,22 +853,18 @@ class ConfigWindow(ctk.CTkToplevel):
                         pass
                     # centrar sobre padre
                     try:
-                        self.update_idletasks()
-                        pwx = self.winfo_rootx()
-                        pwy = self.winfo_rooty()
-                        pww = self.winfo_width()
-                        pwh = self.winfo_height()
+                        from utils.window_utils import center_window
+                        center_window(self, dlg, w=520, h=460)
                     except Exception:
-                        pwx = pwy = 0
-                        pww = dlg.winfo_screenwidth()
-                        pwh = dlg.winfo_screenheight()
-                    dw, dh = 520, 460
-                    dx = pwx + max(0, int((pww - dw) / 2))
-                    dy = pwy + max(0, int((pwh - dh) / 2))
-                    try:
-                        dlg.geometry(f"{dw}x{dh}+{dx}+{dy}")
-                    except Exception:
-                        pass
+                        try:
+                            dw, dh = 520, 460
+                            sw = dlg.winfo_screenwidth()
+                            sh = dlg.winfo_screenheight()
+                            dx = int((sw - dw) / 2)
+                            dy = int((sh - dh) / 2)
+                            dlg.geometry(f"{dw}x{dh}+{dx}+{dy}")
+                        except Exception:
+                            pass
                     try:
                         dlg.transient(self)
                         dlg.grab_set()

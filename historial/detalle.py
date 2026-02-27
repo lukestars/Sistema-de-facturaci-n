@@ -97,7 +97,7 @@ def show_factura_detail(app, factura):
     p_tree.heading('PrecioUnit', text='Precio Unit. ($)')
     p_tree.heading('Subtotal', text='Subtotal ($)')
     p_tree.column('Cant', width=80, anchor=tk.CENTER)
-    p_tree.column('Producto', width=360)
+    p_tree.column('Producto', width=360, anchor=tk.W)
     p_tree.column('PrecioUnit', width=120, anchor=tk.E)
     p_tree.column('Subtotal', width=120, anchor=tk.E)
     p_tree.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)

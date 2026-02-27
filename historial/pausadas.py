@@ -75,12 +75,12 @@ def show_paused_invoices(app):
     tree.heading('Productos', text='Productos')
     tree.heading('TotalBS', text='Total (BS)')
     tree.heading('TotalUSD', text='Total ($)')
-    tree.column('#0', width=120)
-    tree.column('ID', width=80)
-    tree.column('Fecha', width=160)
+    tree.column('#0', width=120, anchor=tk.W)
+    tree.column('ID', width=80, anchor=tk.W)
+    tree.column('Fecha', width=160, anchor=tk.W)
     tree.column('Hora', width=70, anchor=tk.CENTER)
-    tree.column('Cliente', width=180)
-    tree.column('Productos', width=320)
+    tree.column('Cliente', width=180, anchor=tk.W)
+    tree.column('Productos', width=320, anchor=tk.W)
     tree.column('TotalBS', width=110, anchor=tk.E)
     tree.column('TotalUSD', width=90, anchor=tk.E)
     vsb = ttk.Scrollbar(tree_wrap, orient=tk.VERTICAL, command=tree.yview)
@@ -124,7 +124,9 @@ def show_paused_invoices(app):
         except Exception:
             fecha_human = str(ts)
         client_name = inv.get('client', {}).get('name', '') if inv.get('client') else ''
-        productos_str = ', '.join(f"{p.get('name', '')}({p.get('qty', 1)})" for p in inv.get('productos', []))
+        def _prod_qty(p):
+            return int(p.get('qty') or p.get('quantity') or 0)
+        productos_str = ', '.join(f"{p.get('name', '')}({_prod_qty(p)})" for p in inv.get('productos', []))
         total_bs = float(inv.get('total_bs', 0) or 0)
         total_usd = float(inv.get('total_usd', 0) or 0)
         node = date_nodes.get(date_label)
@@ -132,7 +134,7 @@ def show_paused_invoices(app):
             node = tree.insert('', tk.END, text=date_label, open=False)
             date_nodes[date_label] = node
         child = tree.insert(node, tk.END, text=ts, iid=cid,
-                            values=(cid, fecha_human, hora, client_name, productos_str, f"{total_bs:.2f}", f"{total_usd:.2f}"))
+                    values=(cid, fecha_human, hora, client_name, productos_str, f"{total_bs:.2f}", f"{total_usd:.2f}"))
         invoices_map[child] = inv
 
     detail_hdr = ttk.Label(right, text='Detalle', font=('Helvetica', 12, 'bold'))
@@ -180,7 +182,7 @@ def show_paused_invoices(app):
     p_tree.heading('Producto', text='Producto')
     p_tree.heading('Precio', text='Precio')
     p_tree.column('Cant', width=60, anchor=tk.CENTER)
-    p_tree.column('Producto', width=260)
+    p_tree.column('Producto', width=260, anchor=tk.W)
     p_tree.column('Precio', width=100, anchor=tk.E)
     p_tree.pack(fill=tk.BOTH, expand=True)
     try:
@@ -217,7 +219,24 @@ def show_paused_invoices(app):
             app.clear_selected_items()
             for p in inv.get('productos', []):
                 try:
-                    app.add_to_cart_no_reserve(p.get('name', ''), p.get('price', 0.0), p.get('qty', 1))
+                    # prefer using real product id so quantities accumulate correctly
+                    pid = p.get('id') if p.get('id') is not None else p.get('product_id')
+                    qty = int(p.get('qty') or p.get('quantity') or 1)
+                    name = p.get('name', '')
+                    price = float(p.get('price', 0.0) or 0.0)
+                    if pid is not None:
+                        try:
+                            pid_i = int(pid)
+                            # add directly to factura panel without reserving stock (paused invoices keep reservation)
+                            try:
+                                app.factura_panel.add_item(pid_i, name, price, qty)
+                            except Exception:
+                                # fallback to generic add
+                                app.add_to_cart_no_reserve(name, price, qty)
+                        except Exception:
+                            app.add_to_cart_no_reserve(name, price, qty)
+                    else:
+                        app.add_to_cart_no_reserve(name, price, qty)
                 except Exception:
                     pass
         except Exception:
@@ -339,7 +358,7 @@ def show_paused_invoices(app):
                 p_tree.delete(r)
             for i, p in enumerate(inv.get('productos', [])):
                 try:
-                    qty = p.get('qty', 1)
+                    qty = _prod_qty(p)
                     name = _abbrev(p.get('name', ''))
                     price = float(p.get('price', 0) or 0)
                     tag = 'even' if i % 2 == 0 else 'odd'

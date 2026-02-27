@@ -49,8 +49,9 @@ class TablaInventario(ctk.CTkFrame):
             self.tree.configure(highlightbackground='#4a4a4f', highlightcolor='#4a4a4f', highlightthickness=1)
         except Exception:
             pass
-        self.tree.heading("code", text="Código")
-        self.tree.heading("name", text="Nombre")
+        # Ensure heading text aligns with column contents (left-aligned)
+        self.tree.heading("code", text="Código", anchor='w')
+        self.tree.heading("name", text="Nombre", anchor='w')
         self.tree.heading("price_bs", text="Precio Bs")
         # heading for foreign currency will be set dynamically
         symbol = '$'
@@ -61,7 +62,7 @@ class TablaInventario(ctk.CTkFrame):
             symbol = '$'
         self.tree.heading("price_usd", text=f"Precio {symbol}")
         self.tree.heading("stock", text="Stock")
-        self.tree.column("code", anchor='center', width=80)
+        self.tree.column("code", anchor='w', width=80)
         self.tree.column("name", anchor='w', width=180)
         self.tree.column("price_bs", anchor='center', width=90)
         self.tree.column("price_usd", anchor='center', width=90)
@@ -122,7 +123,16 @@ class TablaInventario(ctk.CTkFrame):
         for row in database.get_products():
             # id, code, name, price_bs, price_usd, quantity
             pid, code, name, price_bs, price_usd, qty = row
-            display_code = code or ''
+            # normalize/format product code: if numeric, pad to 4 digits (0001)
+            try:
+                if code and str(code).isdigit():
+                    display_code = str(code).zfill(4)
+                elif code:
+                    display_code = str(code)
+                else:
+                    display_code = str(pid).zfill(4)
+            except Exception:
+                display_code = str(code or pid)
             if nq:
                 if nq not in normalize_text(display_code) and nq not in normalize_text(name):
                     continue

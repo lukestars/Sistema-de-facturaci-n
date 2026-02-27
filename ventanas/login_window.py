@@ -39,7 +39,7 @@ class LoginWindow(ctk.CTk):
         y = int((sh - h) / 2)
 
         self.geometry(f"{w}x{h}+{x}+{y}")
-        self.resizable(False, False)
+        self.resizable(True, True)
 
         # intentar colorear la barra nativa (Windows)
         try:

@@ -92,8 +92,8 @@ class VentanaPrincipal(ctk.CTkToplevel):
             y = int((sh - h) / 2)
             self.geometry(f"{w}x{h}+{x}+{y}")
             try:
-                # Forzar tamaño fijo 1360x768 y no permitir redimensionar
-                self.resizable(False, False)
+                # Allow resizing so minimize/maximize are available; keep sensible minimum
+                self.resizable(True, True)
                 self.minsize(w, h)
             except Exception:
                 pass
@@ -259,6 +259,9 @@ class VentanaPrincipal(ctk.CTkToplevel):
             actions_frame.grid(row=2, column=0, sticky='ew', padx=6, pady=(4,6))
             print_btn = ctk.CTkButton(actions_frame, text='Imprimir', command=lambda: self._open_print())
             print_btn.pack(side='left', padx=6)
+            # Button to pause/save current invoice to paused invoices
+            pause_btn = ctk.CTkButton(actions_frame, text='Factura (P)', command=lambda: self.pause_current_invoice())
+            pause_btn.pack(side='left', padx=6)
         except Exception:
             pass
 
@@ -474,6 +477,30 @@ class VentanaPrincipal(ctk.CTkToplevel):
             arr.append(rec)
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(arr, f, ensure_ascii=False, indent=2)
+            # Additionally, save per-day additions in data/stock_history/<YYYY-MM-DD>.json
+            try:
+                day = datetime.date.today().isoformat()
+                day_dir = os.path.join(d, 'stock_history')
+                os.makedirs(day_dir, exist_ok=True)
+                day_file = os.path.join(day_dir, f"{day}.json")
+                try:
+                    if os.path.exists(day_file):
+                        with open(day_file, 'r', encoding='utf-8') as f:
+                            day_arr = json.load(f) or []
+                    else:
+                        day_arr = []
+                except Exception:
+                    day_arr = []
+                # only record additions (cantidad_nueva > cantidad_anterior)
+                try:
+                    if (cantidad_nueva or 0) > (cantidad_anterior or 0):
+                        day_arr.append({'timestamp': rec['timestamp'], 'codigo': codigo, 'producto': producto, 'added': (cantidad_nueva - cantidad_anterior), 'cantidad_nueva': cantidad_nueva, 'motivo': motivo, 'usuario': rec.get('usuario', '')})
+                        with open(day_file, 'w', encoding='utf-8') as f:
+                            json.dump(day_arr, f, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -488,7 +515,17 @@ class VentanaPrincipal(ctk.CTkToplevel):
             for r in rows:
                 try:
                     pid = int(r[0])
-                    code = r[1] or str(pid)
+                    raw_code = r[1]
+                    # format numeric product codes as zero-padded 4 digits
+                    try:
+                        if raw_code and str(raw_code).isdigit():
+                            code = str(raw_code).zfill(4)
+                        elif raw_code:
+                            code = str(raw_code)
+                        else:
+                            code = str(pid).zfill(4)
+                    except Exception:
+                        code = str(raw_code or pid)
                     name = r[2] or ''
                     price_bs = float(r[3] or 0.0)
                     price_usd = float(r[4] or 0.0)
@@ -504,21 +541,42 @@ class VentanaPrincipal(ctk.CTkToplevel):
             pass
 
     def _center_window(self, win, dw=520, dh=420):
+        # Delegate to central helper to keep centering behavior consistent.
         try:
-            win.update_idletasks()
-        except Exception:
-            pass
-        try:
-            pwx = self.winfo_rootx()
-            pwy = self.winfo_rooty()
-            pww = self.winfo_width()
-            pwh = self.winfo_height()
-            dx = pwx + max(0, int((pww - dw) / 2))
-            dy = pwy + max(0, int((pwh - dh) / 2))
-            win.geometry(f"{dw}x{dh}+{dx}+{dy}")
-        except Exception:
             try:
-                # fallback center on screen
+                # prefer relative package import when running as part of the `venta` package
+                from ..utils.window_utils import center_window
+            except Exception:
+                try:
+                    from utils.window_utils import center_window
+                except Exception:
+                    # local fallback center implementation (minimal)
+                    def center_window(_parent, _win, w=None, h=None):
+                        try:
+                            _win.update_idletasks()
+                        except Exception:
+                            pass
+                        try:
+                            sw = _win.winfo_screenwidth()
+                            sh = _win.winfo_screenheight()
+                            tw = int(w) if w else _win.winfo_reqwidth()
+                            th = int(h) if h else _win.winfo_reqheight()
+                            x = max(0, int((sw - tw) / 2))
+                            y = max(0, int((sh - th) / 2))
+                            try:
+                                _win.geometry(f"{int(tw)}x{int(th)}+{x}+{y}")
+                            except Exception:
+                                try:
+                                    _win.geometry(f"+{x}+{y}")
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+            center_window(self, win, w=dw, h=dh)
+        except Exception:
+            # best-effort fallback: attempt basic center
+            try:
+                win.update_idletasks()
                 sw = win.winfo_screenwidth()
                 sh = win.winfo_screenheight()
                 dx = int((sw - dw) / 2)
@@ -665,6 +723,25 @@ class VentanaPrincipal(ctk.CTkToplevel):
     def _add_selected_to_invoice(self, event=None):
         # tomar la selección de la tabla de inventario y añadir al panel de factura
         try:
+            # require a selected client before allowing adding products
+            try:
+                client = None
+                if hasattr(self, 'header') and callable(getattr(self.header, 'get_selected_client', None)):
+                    client = self.header.get_selected_client()
+                elif hasattr(self, 'header') and hasattr(self.header, 'selected_client'):
+                    client = getattr(self.header, 'selected_client', None)
+                if not client:
+                    try:
+                        from tkinter import messagebox
+                        messagebox.showwarning('Cliente requerido', 'Seleccione un cliente antes de añadir productos.')
+                    except Exception:
+                        try:
+                            self.show_status('Seleccione un cliente antes de añadir productos.')
+                        except Exception:
+                            pass
+                    return
+            except Exception:
+                pass
             # si viene un evento (doble-click), seleccionar la fila bajo el cursor
             if event is not None:
                 try:
@@ -804,7 +881,7 @@ class VentanaPrincipal(ctk.CTkToplevel):
             win.title('Historial')
             try:
                 win.transient(self)
-                win.resizable(False, False)
+                win.resizable(True, True)
             except Exception:
                 pass
             pad = 12
@@ -841,38 +918,38 @@ class VentanaPrincipal(ctk.CTkToplevel):
 
             # try to import new historial handlers
             try:
-                from historial.listado import show_facturas
+                from ..historial.listado import show_facturas
             except Exception:
                 try:
-                    from venta.historial.listado import show_facturas
+                    from historial.listado import show_facturas
                 except Exception:
                     show_facturas = None
             try:
-                from historial.pausadas import show_paused_invoices
+                from ..historial.pausadas import show_paused_invoices
             except Exception:
                 try:
-                    from venta.historial.pausadas import show_paused_invoices
+                    from historial.pausadas import show_paused_invoices
                 except Exception:
                     show_paused_invoices = None
             try:
-                from historial.stock_history import show_stock_history_window
+                from ..historial.stock_history import show_stock_history_window
             except Exception:
                 try:
-                    from venta.historial.stock_history import show_stock_history_window
+                    from historial.stock_history import show_stock_history_window
                 except Exception:
                     show_stock_history_window = None
             try:
-                from historial.cierre_caja import show_cierre_caja
+                from ..historial.cierre_caja import show_cierre_caja
             except Exception:
                 try:
-                    from venta.historial.cierre_caja import show_cierre_caja
+                    from historial.cierre_caja import show_cierre_caja
                 except Exception:
                     show_cierre_caja = None
             try:
-                from historial.export import show_export_menu
+                from ..historial.export import show_export_menu
             except Exception:
                 try:
-                    from venta.historial.export import show_export_menu
+                    from historial.export import show_export_menu
                 except Exception:
                     show_export_menu = None
 
@@ -898,6 +975,25 @@ class VentanaPrincipal(ctk.CTkToplevel):
 
     def _open_print(self):
         """Open the print/impresion window (safe import and fallback)."""
+        # require client selection before forming/printing invoice
+        try:
+            client = None
+            if hasattr(self, 'header') and callable(getattr(self.header, 'get_selected_client', None)):
+                client = self.header.get_selected_client()
+            elif hasattr(self, 'header') and hasattr(self.header, 'selected_client'):
+                client = getattr(self.header, 'selected_client', None)
+            if not client:
+                try:
+                    from tkinter import messagebox
+                    messagebox.showwarning('Cliente requerido', 'Seleccione un cliente antes de generar/emitir la factura.')
+                except Exception:
+                    try:
+                        self.show_status('Seleccione un cliente antes de generar/emitir la factura.')
+                    except Exception:
+                        pass
+                return
+        except Exception:
+            pass
         try:
             from ventanas.impresion import open_print_window
             open_print_window(self)
@@ -996,5 +1092,112 @@ class VentanaPrincipal(ctk.CTkToplevel):
             try:
                 from ventanas.stock_dialog import open_stock_dialog as _f
                 _f(self)
+            except Exception:
+                pass
+
+    def pause_current_invoice(self):
+        """Save current invoice to paused invoices registry and clear invoice panel while keeping stock reserved."""
+        try:
+            # require client selection before pausing/saving invoice
+            try:
+                client = None
+                if hasattr(self, 'header') and callable(getattr(self.header, 'get_selected_client', None)):
+                    client = self.header.get_selected_client()
+                elif hasattr(self, 'header') and hasattr(self.header, 'selected_client'):
+                    client = getattr(self.header, 'selected_client', None)
+                if not client:
+                    try:
+                        from tkinter import messagebox
+                        messagebox.showwarning('Cliente requerido', 'Seleccione un cliente antes de guardar/pausar la factura.')
+                    except Exception:
+                        try:
+                            self.show_status('Seleccione un cliente antes de guardar/pausar la factura.')
+                        except Exception:
+                            pass
+                    return
+            except Exception:
+                pass
+            try:
+                items = self.factura_panel.get_items() or []
+            except Exception:
+                items = []
+            if not items:
+                try:
+                    from tkinter import messagebox
+                    messagebox.showinfo('Pausar', 'No hay productos seleccionados para pausar.')
+                except Exception:
+                    self.show_status('No hay productos seleccionados para pausar.')
+                return
+            try:
+                from tkinter import messagebox
+                if not messagebox.askyesno('Pausar factura', '¿Guardar la factura actual en facturas en pausa?'):
+                    return
+            except Exception:
+                pass
+            # build invoice record
+            import datetime
+            fecha = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            fecha_human = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            invoice_id = getattr(self, '_current_invoice_id', None) or f"{fecha[:8]}-1"
+            productos_for_listado = [{'name': it.get('name', ''), 'qty': it.get('quantity', 0), 'price': it.get('price', 0)} for it in items]
+            # compute basic totals
+            subtotal_bs = 0.0
+            iva_bs = 0.0
+            try:
+                for it in items:
+                    subtotal_bs += float(it.get('subtotal', 0.0) or 0.0)
+                    iva_bs += float(it.get('vat', 0.0) or 0.0)
+            except Exception:
+                pass
+            total_bs = round(subtotal_bs + iva_bs, 2)
+            inv = {
+                'id': invoice_id,
+                'numero_factura': invoice_id,
+                'productos': items,
+                'productos_display': productos_for_listado,
+                'subtotal_bs': round(subtotal_bs, 2),
+                'iva_amount_bs': round(iva_bs, 2),
+                'total_bs': total_bs,
+                'file': '',
+                'timestamp': fecha,
+                'datetime': fecha_human,
+                'state': 'PAUSADA',
+                'payments': {},
+            }
+            try:
+                self.paused_invoices = getattr(self, 'paused_invoices', []) or []
+                self.paused_invoices.append(inv)
+                try:
+                    self.save_paused_to_disk()
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            # clear current invoice UI but keep stock reserved
+            try:
+                self.clear_selected_items(restore_stock=False)
+            except Exception:
+                try:
+                    # fallback: clear factura panel items without restoring stock
+                    if hasattr(self.factura_panel, 'clear'):
+                        try:
+                            self.factura_panel._items = {}
+                            self.factura_panel._refresh()
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            try:
+                from tkinter import messagebox
+                messagebox.showinfo('Pausada', 'Factura pausada y guardada para retomarla más tarde.')
+            except Exception:
+                try:
+                    self.show_status('Factura pausada y guardada para retomarla más tarde.')
+                except Exception:
+                    pass
+        except Exception:
+            try:
+                import traceback
+                traceback.print_exc()
             except Exception:
                 pass

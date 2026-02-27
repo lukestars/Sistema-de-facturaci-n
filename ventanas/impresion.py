@@ -77,11 +77,8 @@ def open_print_window(parent):
 
     # center relative to parent when possible, otherwise fit to content and center on screen
     try:
-        if hasattr(parent, '_center_window'):
-            # estimate dialog size and center relative to parent
-            parent._center_window(win, dw=640, dh=760)
-        else:
-            fit_window(win)
+        from utils.window_utils import center_window
+        center_window(parent, win, w=640, h=760)
     except Exception:
         try:
             fit_window(win)
@@ -141,7 +138,7 @@ def open_print_window(parent):
     tree.heading('Cant.', text='Cant.')
     tree.heading('Precio Bs', text='Precio Bs')
     # approximate pixel widths for columns (simple heuristic)
-    tree.column('Producto', width=20 * name_col_chars)
+    tree.column('Producto', width=20 * name_col_chars, anchor='w')
     tree.column('Cant.', width=80, anchor='e')
     tree.column('Precio Bs', width=120, anchor='e')
     vsb = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=tree.yview)
@@ -474,9 +471,10 @@ def open_print_window(parent):
         try:
             # reference limit: max 6 digits
             def validate_ref(nv):
+                # allow empty while typing, otherwise only up to 6 digits
                 if nv == '':
                     return True
-                return bool(re.match(r'^\d{0,12}$', nv))
+                return bool(re.match(r'^\d{0,6}$', nv))
             vref = win.register(validate_ref)
             try:
                 pago_ref_entry.configure(validate='key', validatecommand=(vref, '%P'))
@@ -777,6 +775,29 @@ def open_print_window(parent):
                 if ref:
                     s += f" (Ref: {ref})"
                 parts.append(s)
+                # If Pago Móvil is used, require a 6-digit numeric reference to enable printing
+                try:
+                    if mov > 0 and not re.match(r'^\d{6}$', ref):
+                        status_var.set('Ref. Pago Móvil inválida (6 dígitos)')
+                        try:
+                            status_lbl.configure(text_color='red')
+                        except Exception:
+                            pass
+                        try:
+                            if ctk is None:
+                                s = ttk.Style()
+                                s.configure('Impr.Status.TLabel', foreground='red')
+                        except Exception:
+                            pass
+                        try:
+                            btn_print.configure(state='disabled')
+                        except Exception:
+                            pass
+                        # still update summary but stop further enabling logic
+                        payment_summary_var.set(' | '.join(parts) if parts else 'Sin pagos')
+                        return
+                except Exception:
+                    pass
             payment_summary_var.set(' | '.join(parts) if parts else 'Sin pagos')
         except Exception:
             pass
@@ -1040,6 +1061,16 @@ def open_print_window(parent):
                 parent.update_totals()
             except Exception:
                 pass
+            # normalize subtotal/iva/total variable names so both 58mm and wide layouts work
+            subtotal_usd = locals().get('subtotal_usd') if 'subtotal_usd' in locals() else locals().get('sub_usd', 0.0)
+            impuesto_usd = locals().get('impuesto_usd') if 'impuesto_usd' in locals() else locals().get('imp_usd', 0.0)
+            # total variable name difference: wide uses total_usd_calc, 58mm used total_usd
+            total_usd_calc = locals().get('total_usd_calc') if 'total_usd_calc' in locals() else locals().get('total_usd', round(subtotal_usd + impuesto_usd, 2))
+            # compute BS equivalents safely using rate_safe
+            subtotal_bs = locals().get('subtotal_bs') if 'subtotal_bs' in locals() else round(subtotal_usd * rate_safe, 2)
+            impuesto_bs = locals().get('impuesto_bs') if 'impuesto_bs' in locals() else round(impuesto_usd * rate_safe, 2)
+            total_bs_calc = locals().get('total_bs_calc') if 'total_bs_calc' in locals() else round(total_usd_calc * rate_safe, 2)
+
             invoice_id = (getattr(parent, 'get_current_invoice_id', None) and parent.get_current_invoice_id()) or f"{fecha[:8]}-1"
             productos_for_listado = [{'name': it.get('name', ''), 'qty': it.get('quantity', 0), 'price': it.get('price', 0)} for it in selected]
             invoice = {

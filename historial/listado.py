@@ -47,7 +47,8 @@ def show_facturas(app):
     hdr.pack(fill=tk.X, pady=(pad, 4))
     ttk.Label(hdr, text='Facturas finalizadas', font=('Helvetica', int(14 * ui_scale), 'bold')).pack(side=tk.LEFT, padx=pad)
 
-    main_pane = ttk.PanedWindow(content, orient=tk.HORIZONTAL)
+    # Use a plain frame instead of PanedWindow to avoid any sash/separator
+    main_pane = ttk.Frame(content)
     main_pane.pack(fill=tk.BOTH, expand=True, padx=pad, pady=pad)
     try:
         st = ttk.Style()
@@ -57,31 +58,55 @@ def show_facturas(app):
     except Exception:
         pass
 
+    # sizing will be applied after calculating column widths
+
     left = ttk.Frame(main_pane)
     right = ttk.Frame(main_pane)
-    main_pane.add(left, weight=3)
-    main_pane.add(right, weight=2)
+    # pack left and right side-by-side; sizes will be fixed after measuring columns
+    left.pack(side=tk.LEFT, fill=tk.BOTH, expand=False)
+    right.pack(side=tk.LEFT, fill=tk.Y, expand=False)
 
     list_frame = ttk.Frame(left)
     list_frame.pack(fill=tk.BOTH, expand=True)
     tree_wrap = tk.Frame(list_frame, bg=border_gray, highlightbackground=border_gray, highlightcolor=border_gray, highlightthickness=1)
     tree_wrap.pack(fill=tk.BOTH, expand=True)
     tree = ttk.Treeview(tree_wrap, columns=('Nro', 'FechaHora', 'Productos', 'Total', 'Pago'), show='tree headings', height=20, style='Small.Treeview')
-    tree.heading('#0', text='Fecha')
-    tree.heading('Nro', text='Nro')
-    tree.heading('FechaHora', text='Fecha/Hora')
-    tree.heading('Productos', text='Productos')
-    tree.heading('Total', text='Total (BS/$)')
-    tree.heading('Pago', text='Método')
+    tree.heading('#0', text='Fecha', anchor=tk.W)
+    tree.heading('Nro', text='Nro', anchor=tk.W)
+    tree.heading('FechaHora', text='Fecha/Hora', anchor=tk.W)
+    tree.heading('Productos', text='Productos', anchor=tk.W)
+    tree.heading('Total', text='Total (BS/$)', anchor=tk.E)
+    tree.heading('Pago', text='Método', anchor=tk.W)
     tree.column('#0', width=72, minwidth=56, stretch=False, anchor=tk.W)
-    tree.column('Nro', width=64, minwidth=52, stretch=False, anchor=tk.CENTER)
+    tree.column('Nro', width=64, minwidth=52, stretch=False, anchor=tk.W)
     tree.column('FechaHora', width=100, minwidth=80, stretch=False, anchor=tk.W)
-    tree.column('Productos', width=140, minwidth=80, stretch=True, anchor=tk.W)
+    tree.column('Productos', width=140, minwidth=80, stretch=False, anchor=tk.W)
     tree.column('Total', width=88, minwidth=72, stretch=False, anchor=tk.E)
-    tree.column('Pago', width=80, minwidth=64, stretch=False, anchor=tk.CENTER)
+    tree.column('Pago', width=80, minwidth=64, stretch=False, anchor=tk.W)
     vsb = ttk.Scrollbar(tree_wrap, orient=tk.VERTICAL, command=tree.yview)
-    tree.configure(yscrollcommand=vsb.set)
-    vsb.pack(side=tk.RIGHT, fill=tk.Y)
+    # show vertical scrollbar only when needed
+    def _on_yscroll(first, last):
+        try:
+            vsb.set(first, last)
+            if float(first) <= 0.0 and float(last) >= 0.9999:
+                try:
+                    vsb.pack_forget()
+                except Exception:
+                    pass
+            else:
+                try:
+                    vsb.pack(side=tk.RIGHT, fill=tk.Y)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    tree.configure(yscrollcommand=_on_yscroll)
+    tree.pack(fill=tk.BOTH, expand=True)
+    # initialize scrollbar visibility
+    try:
+        tree.after_idle(lambda: _on_yscroll(*(tree.yview())))
+    except Exception:
+        pass
     tree.pack(fill=tk.BOTH, expand=True)
 
     invoices_map = {}
@@ -102,10 +127,11 @@ def show_facturas(app):
                 except (OSError, json.JSONDecodeError, TypeError):
                     continue
                 def _prod_preview(p):
-                    name = (p.get('name') or '').strip()
-                    if name:
-                        name = name[0].upper() + name[1:] if len(name) > 1 else name.upper()
-                    return f"{name}({p.get('qty', '')})"
+                                name = (p.get('name') or '').strip()
+                                if name:
+                                    name = name[0].upper() + name[1:] if len(name) > 1 else name.upper()
+                                qty = p.get('qty') if p.get('qty') is not None else p.get('quantity', '')
+                                return f"{name}({qty})"
                 productos_str = ', '.join(_prod_preview(p) for p in inv.get('productos', []))
                 preview = productos_str if len(productos_str) <= 80 else productos_str[:77] + '...'
                 fecha_h = inv.get('datetime') or inv.get('timestamp', '')
@@ -135,6 +161,111 @@ def show_facturas(app):
                 child = tree.insert(date_node, tk.END, text=inv.get('timestamp', ''), values=(nro_display, fecha_h, preview, total_str, method_display))
                 invoices_map[child] = inv
                 date_children[date_node].append(child)
+    except Exception:
+        pass
+
+    # Auto-size columns to content and prevent user from resizing columns
+    try:
+        import tkinter.font as tkfont
+        cols = ('#0', 'Nro', 'FechaHora', 'Productos', 'Total', 'Pago')
+        # use the same base font size as the tree style if possible
+        try:
+            base_font = tkfont.Font(family='Helvetica', size=int(9 * ui_scale))
+        except Exception:
+            base_font = tkfont.nametofont('TkDefaultFont')
+        padding = int(12 * ui_scale)
+        # measure header and values
+        max_widths = {c: base_font.measure(tree.heading(c)['text']) + padding for c in cols}
+        for parent in tree.get_children(''):
+            # include date rows for #0
+            try:
+                txt = tree.item(parent, 'text')
+                w = base_font.measure(str(txt) or '') + padding
+                if w > max_widths['#0']:
+                    max_widths['#0'] = w
+            except Exception:
+                pass
+            # children (actual invoices)
+            for child in tree.get_children(parent):
+                vals = tree.item(child, 'values') or ()
+                # '#0' column uses item text
+                try:
+                    t0 = tree.item(child, 'text')
+                    w0 = base_font.measure(str(t0) or '') + padding
+                    if w0 > max_widths['#0']:
+                        max_widths['#0'] = w0
+                except Exception:
+                    pass
+                # other columns map to vals indices
+                try:
+                    for idx, cid in enumerate(cols[1:], start=0):
+                        v = vals[idx] if idx < len(vals) else ''
+                        w = base_font.measure(str(v) or '') + padding
+                        if w > max_widths[cid]:
+                            max_widths[cid] = w
+                except Exception:
+                    pass
+        # apply widths and prevent stretching
+        total_w = 0
+        for c in cols:
+            try:
+                minw = tree.column(c, option='minwidth') or 20
+            except Exception:
+                minw = 20
+            w = int(max(max_widths.get(c, 40), int(minw)))
+            tree.column(c, width=w, stretch=False)
+            total_w += w
+        # set left/right frame widths to match content and detail panel
+        try:
+            right_w = int(360 * ui_scale)
+            extra = int(80 * ui_scale)
+            # ensure left frame uses total_w
+            try:
+                left.config(width=total_w)
+                left.pack_propagate(False)
+            except Exception:
+                pass
+            try:
+                right.config(width=right_w)
+                right.pack_propagate(False)
+            except Exception:
+                pass
+        except Exception:
+            right_w = int(360 * ui_scale)
+        # now compute final window size, cap to screen and center
+        try:
+            try:
+                win.update_idletasks()
+            except Exception:
+                pass
+            extra = int(80 * ui_scale)
+            win_w = int(total_w + right_w + extra)
+            win_h = int(default_h)
+            # cap to screen size with margins
+            try:
+                screen_w = win.winfo_screenwidth()
+                screen_h = win.winfo_screenheight()
+                max_w = max(int(screen_w * 0.9), 200)
+                max_h = max(int(screen_h * 0.9), 200)
+                if win_w > max_w:
+                    win_w = max_w
+                if win_h > max_h:
+                    win_h = max_h
+            except Exception:
+                pass
+            try:
+                win.geometry(f"{win_w}x{win_h}")
+                win.minsize(win_w, win_h)
+                win.maxsize(win_w, win_h)
+                win.resizable(False, False)
+            except Exception:
+                pass
+            try:
+                dialogs.center_window(app, win, win_w, win_h)
+            except Exception:
+                pass
+        except Exception:
+            pass
     except Exception:
         pass
 
@@ -455,9 +586,9 @@ def show_facturas(app):
                 name = (p.get('name') or '').strip()
                 if name:
                     name = name[0].upper() + name[1:] if len(name) > 1 else name.upper()
-                qty = p.get('qty')
+                qty = p.get('qty') if p.get('qty') is not None else p.get('quantity', '')
                 price = p.get('price', 0.0)
-                products_text.insert(tk.END, f"{name} — Cant.: {qty} — Precio: {price:.2f} $\n")
+                products_text.insert(tk.END, f"{name} — Cant.: {qty} — Precio: {float(price):.2f} $\n")
             products_text.insert(tk.END, '\n')
             products_text.insert(tk.END, f"Total: {inv.get('total_bs', 0):.2f} BS / {inv.get('total_usd', 0):.2f} $\n")
             products_text.configure(state='disabled')
