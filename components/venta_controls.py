@@ -130,6 +130,11 @@ class VentaControls(ctk.CTkFrame):
                 self.cierre_btn.configure(state='disabled', fg_color=self._color_gray)
         except Exception:
             pass
+        try:
+            if self.header_ref and hasattr(self.header_ref, 'update_venta_state'):
+                self.header_ref.update_venta_state()
+        except Exception:
+            pass
 
     def open_venta(self):
         try:
@@ -187,27 +192,44 @@ class VentaControls(ctk.CTkFrame):
             except Exception:
                 pass
 
-            # compute totals using cierre_caja helper if available
-            totals = None
+            # compute full analytics (conteo por método, totales, módulo divisas, gran total)
+            analytics = None
             try:
-                from venta.historial.cierre_caja import compute_cierre_totals
+                from historial.cierre_caja import compute_cierre_analytics, save_cierre_pdf
                 tc = float(getattr(app, 'exchange_rate', 1.0) or 1.0)
-                totals = compute_cierre_totals(facturas_dia, tc)
+                analytics = compute_cierre_analytics(facturas_dia, tc)
             except Exception:
-                # fallback: simple aggregation
-                totals = {'total_efectivo': 0.0, 'total_pv': 0.0, 'total_pm': 0.0, 'total_usd_bs': 0.0, 'total_gral': 0.0}
                 try:
-                    for inv in facturas_dia:
-                        pays = inv.get('payments') or {}
-                        totals['total_efectivo'] += float(pays.get('efectivo_bs') or 0)
-                        totals['total_pv'] += float(pays.get('punto_bs') or 0)
-                        totals['total_pm'] += float(pays.get('pago_movil_bs') or 0)
-                        totals['total_usd_bs'] += float(pays.get('usd') or 0) * float(getattr(app, 'exchange_rate', 1.0) or 1.0)
-                    totals['total_gral'] = totals['total_efectivo'] + totals['total_pv'] + totals['total_pm'] + totals['total_usd_bs']
+                    from venta.historial.cierre_caja import compute_cierre_analytics, save_cierre_pdf
+                    tc = float(getattr(app, 'exchange_rate', 1.0) or 1.0)
+                    analytics = compute_cierre_analytics(facturas_dia, tc)
                 except Exception:
-                    pass
+                    analytics = {'total_efectivo': 0.0, 'total_pv': 0.0, 'total_pm': 0.0, 'total_usd_bs': 0.0,
+                                'total_gral_bs': 0.0, 'total_gral_usd': 0.0, 'num_facturas': 0,
+                                'count_efectivo': 0, 'count_pv': 0, 'count_pm': 0, 'count_dolar': 0,
+                                'divisa_count': 0, 'divisa_total_usd': 0.0, 'divisa_total_bs_equiv': 0.0}
+                    try:
+                        for inv in facturas_dia:
+                            pays = inv.get('payments') or {}
+                            analytics['total_efectivo'] += float(pays.get('efectivo_bs') or 0)
+                            analytics['total_pv'] += float(pays.get('punto_bs') or 0)
+                            analytics['total_pm'] += float(pays.get('pago_movil_bs') or 0)
+                            analytics['total_usd_bs'] += float(pays.get('usd') or 0) * tc
+                            analytics['total_gral_usd'] += float(inv.get('total_usd') or 0)
+                            if float(pays.get('efectivo_bs') or 0) > 0:
+                                analytics['count_efectivo'] += 1
+                            if float(pays.get('punto_bs') or 0) > 0:
+                                analytics['count_pv'] += 1
+                            if float(pays.get('pago_movil_bs') or 0) > 0:
+                                analytics['count_pm'] += 1
+                            if float(pays.get('usd') or 0) > 0:
+                                analytics['count_dolar'] += 1
+                        analytics['total_gral_bs'] = analytics['total_efectivo'] + analytics['total_pv'] + analytics['total_pm'] + analytics['total_usd_bs']
+                        analytics['num_facturas'] = len(facturas_dia)
+                    except Exception:
+                        pass
 
-            # persist closure record
+            # persist closure record (with full analytics)
             try:
                 d = getattr(app, '_data_dir', os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data'))
                 os.makedirs(d, exist_ok=True)
@@ -222,8 +244,8 @@ class VentaControls(ctk.CTkFrame):
                     arr = []
                 rec = {
                     'date': today,
-                    'timestamp': datetime.datetime.utcnow().isoformat() + 'Z',
-                    'totals': totals,
+                    'timestamp': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    'analytics': analytics,
                     'user': getattr(app, 'user', '')
                 }
                 arr.append(rec)
@@ -234,6 +256,18 @@ class VentaControls(ctk.CTkFrame):
                     app.show_status('No se pudo guardar el cierre')
                 except Exception:
                     pass
+
+            # save PDF to Cierres_Caja/YYYY/MM_Mes/Cierre_DD-MM-YYYY_HHmm.pdf
+            try:
+                from historial.cierre_caja import save_cierre_pdf
+            except Exception:
+                from venta.historial.cierre_caja import save_cierre_pdf
+            try:
+                pdf_path = save_cierre_pdf(app, analytics or {}, today, getattr(app, 'user', ''))
+                if pdf_path and hasattr(app, 'show_status'):
+                    app.show_status(f'Cierre guardado en {pdf_path}')
+            except Exception:
+                pass
 
             # mark venta closed
             try:
@@ -259,14 +293,14 @@ class VentaControls(ctk.CTkFrame):
             except Exception:
                 pass
 
-            # open cierre dialog to show details
+            # open cierre dialog with current analytics
             try:
-                from ..historial.cierre_caja import show_cierre_caja
-                show_cierre_caja(app)
+                from historial.cierre_caja import show_cierre_caja
+                show_cierre_caja(app, date_str=today, analytics=analytics)
             except Exception:
                 try:
                     from venta.historial.cierre_caja import show_cierre_caja
-                    show_cierre_caja(app)
+                    show_cierre_caja(app, date_str=today, analytics=analytics)
                 except Exception:
                     pass
 

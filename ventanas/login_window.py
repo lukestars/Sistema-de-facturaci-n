@@ -47,17 +47,21 @@ class LoginWindow(ctk.CTk):
         except Exception:
             pass
 
-        # Fondo y contenedor central
+        # Fondo único: ventana y área del formulario con el mismo color
+        bg = colors.get("bg", "#121212")
         try:
-            self.configure(fg_color=colors.get("bg"))
+            self.configure(fg_color=bg)
         except Exception:
             pass
 
-        container = ctk.CTkFrame(content, corner_radius=12, fg_color=colors.get('frame'))
-        container.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.9, relheight=0.85)
+        container = ctk.CTkFrame(
+            content, corner_radius=0, fg_color=bg,
+            border_width=0
+        )
+        container.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.88, relheight=0.82)
 
-        self.login = LoginForm(container, on_success=self._on_success, colors=colors, fonts=fonts)
-        self.login.pack(expand=True, fill='both', padx=10, pady=10)
+        self.login = LoginForm(container, on_success=self._on_success, colors=colors, fonts=fonts, fg_color=bg)
+        self.login.pack(expand=True, fill='both', padx=24, pady=24)
 
     def _on_success(self, username: str):
         # No mostrar popups; continuar con la apertura de la ventana principal

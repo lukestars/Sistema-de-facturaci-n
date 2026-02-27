@@ -1,8 +1,8 @@
-Aplicación de facturación (esqueleto)
+Aplicación de facturación
 
 Este proyecto contiene la estructura inicial de una app de facturación en Python usando CustomTkinter.
 
-Estructura creada:
+Estructura:
 - `styles.py` — Colores, fuentes y aplicar tema.
 - `database.py` — Inicialización SQLite y funciones de usuario (init_db, create_user, verify_user).
 - `components/login_form.py` — Componente de formulario de login (CTkFrame reutilizable).
@@ -28,5 +28,3 @@ python main.py
 
 Notas:
 - El proyecto crea una base de datos en `data/app.db` y un usuario por defecto `admin` con contraseña `admin`.
-- Sigue la estructura pedida: separé estilos, DB, componentes y ventanas.
-- Próximo paso: crear la ventana principal, tabla de inventario, y demás componentes en archivos separados.
